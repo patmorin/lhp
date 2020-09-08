@@ -5,7 +5,114 @@ import random
 import subprocess
 import matplotlib.pyplot as plt
 
-def bfs_tree(roots, al):
+
+class IntegerSet(object):
+    def __init__(self, n, population=[]):
+        ans = [-1, n]
+        self.answers = [ans]*(n+1)
+        for x in population:
+            self.add(x)
+
+    def get_n(self):
+        return len(self.answers)-1
+
+    n = property(get_n, None)
+
+    def interval(self, x):
+        return self.answers[x]
+
+    def successor(self, x):
+        return self.answers[x][1]
+
+    def predecessor(self,x):
+        return self.answers[x][0]
+
+    def add(self, x):
+        ans = self.answers[x]
+        a, b = ans
+        if b > x:
+            if x <= (a+b)//2:
+                ans2 = [a, x]
+                for i in range(a+1, x+1):
+                    self.answers[i] = ans2
+                ans[0] = x
+            else:
+                ans2 = [x, b]
+                for i in range(x+1, b+1):
+                    self.answers[i] = ans2
+                ans[1] = x
+
+    def __iter__(self):
+        return IntegerSetIterator(self)
+
+    def __repr__(self):
+        return "IntegerSet({},[{}])".format(self.n,
+                                             ",".join(str(x) for x in self))
+
+
+class IntegerSetIterator(object):
+    def __init__(self, s):
+        self.s = s
+        self.x = -1
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.x = self.s.interval(self.x+1)[1]
+        if self.x >= self.s.n:
+            raise StopIteration()
+        return self.x
+
+class MarkedAncestorStruct(object):
+    def __init__(self, tree, roots):
+        self.tree = tree
+        self.intervals = [None]*n
+        self.tour = list()
+        for r in roots:
+            self._euler_tour(r)
+
+        m = len(self.tour)
+        self.intset = IntegerSet(m)
+        print(self.intset)
+        self.marked = [False]*n
+        for r in roots:
+            self.mark(r)
+
+    def mark(self, v):
+        self.marked[v] = True
+        self._mark_node(v)
+        for w in self.tree[v][1:]:
+            self._mark_node(w)
+
+    def _mark_node(self, w):
+        a, b = self.intervals[w]
+        self.intset.add(a)
+        self.intset.add(b)
+
+    def nearest_marked_ancestor(self, v):
+        x = self.intervals[v][1]
+        a,b = self.intset.interval(x)
+        a = self.tour[b]
+        if not self.marked[a]:
+            a = self.tree[a][0]
+        return a
+
+    def is_marked(self, v):
+        return self.marked[v]
+
+    # TODO: This shouldn't be recursive
+    def _euler_tour(self, r):
+        i = len(self.tour)
+        a = len(self.tour)
+        self.tour.append(r)
+        for i in range(1, len(self.tree[r])):
+            self._euler_tour(self.tree[r][i])
+        b = len(self.tour)
+        self.tour.append(r)
+        self.intervals[r] = (a,b)
+
+def bfs_tree(al, roots):
     q = deque(roots)
     seen = set(roots)
     t = [list() for _ in al]
@@ -21,31 +128,76 @@ def bfs_tree(roots, al):
                 t[v].append(w)  # makes w a child of v
     return t
 
-def colour_path(v, colours, t):
-    path = [v]
-    while path[-1] not in colours:
-        path.append(t[path[-1]][0])
-    c = colours[path[-1]]
-    for u in path:
-        colours[u] = c
+class layered_h_partition(object):
+    def __init__(self, al, succ):
+        self.al = al
+        self.succ = succ
+        roots = [0,1,2]  # has to be a triangular face
+        self.t = bfs_tree(al, roots)
 
-def sperner_triangle(p1, p2, p3, al, t):
-    p = (p1, p2, p3)
-    colours = dict()
-    for i in range(len(p)):
-        for v in p[i]:
-            colours[v] = i
+        self.nma = MarkedAncestorStruct(self.t, roots)
+        self.colours = [None]*len(self.al)
+        for i in range(len(roots)):
+            r = roots[i]
+            self.set_colour(r, i)
 
-    e = (p1[-1],p2[0])
-    while 1 < 2:
-        v = succ[e[0]][e[1]]
-        colour_path(v, colours, t)
-        if colours[v] != colours[e[0]] and colours[v] != colours[e[1]]:
-            return e[0], e[1], v
-        if colours[v] != colours[e[0]]:
-            e = e[0], v
-        elif colours[v] != colours[e[1]]:
-            e = v, e[1]
+        paths = [[x] for x in roots]
+        self.partition = paths
+
+        self.compute(paths)
+
+    def compute(self, paths):
+        assert(len(paths) == 3)
+        p1, p2, p3 = paths
+        e = (p2[-1],p1[0])
+        self.tau = self.sperner_triangle(e)
+        tau = self.tau
+        tripod_paths = [self.tripod_path(tau[i]) for i in range(3)]
+        self.partition.extend(tripod_paths)
+        print(tripod_paths)
+        for path in tripod_paths:
+            for v in path:
+                self.set_colour(v, 3)
+
+        # Continue here identifying q1, q2, and q3.
+        z3 := tripod_paths[0][::-1] + tripod_paths[1]
+        x2 = self.t[tripod_paths[1][-1]][0]
+        z2 = suffix(p2, x2)
+        x1 = self.t[tripod_paths[0][0]][0]
+        z1 = prefix(p1, x1)
+        self.compute(self, [z1, z2, z3])
+
+
+    def tripod_path(self, v):
+        path = list()
+        while self.colours[v] == None:
+            path.append(v)
+            v = self.t[v][0]
+        return path
+
+    def sperner_triangle(self, e):
+        c0 = self.get_colour(e[0])
+        c1 = self.get_colour(e[1])
+        assert(c0 != c1)
+        while 1 < 2:
+            v = self.succ[e[0]][e[1]]
+            c = self.get_colour(v)
+            if c != c0 and c != c1:
+                return e[0], e[1], v
+            if c != c0:
+                e = e[0], v
+            else:
+                e = v, e[1]
+
+    def set_colour(self, v, c):
+        self.nma.mark(v)
+        self.colours[v] = c
+
+    def get_colour(self, v):
+        a = self.nma.nearest_marked_ancestor(v)
+        return self.colours[a]
+
+
 
 
 def build_succ(faces):
@@ -127,18 +279,12 @@ if __name__ == "__main__":
             next = succ[u][next]
 
 
+
+    print("Initializing layered H-partition")
+    lhp = layered_h_partition(al, succ)
+
     # print("==== adjacency list ====")
     # print(al)
-
-    # print("==== bfs tree ====")
-    print("Building BFS tree")
-    t = bfs_tree([0,1,2], al)
-    # print(t)
-    # print(faces)
-
-    print("Finding Sperner triangle")
-    tau = sperner_triangle([faces[0][2]], [faces[0][1]], [faces[0][0]], al, t)
-    print(tau)
 
     print("done")
 
@@ -161,36 +307,33 @@ if __name__ == "__main__":
     #                  [points[v][1], points[next][1]], color='purple', lw=2)
     #         v = next
 
-    # draw all colours
-    colours = [None]*n
-    colours[0] = 'red'
-    colours[1] = 'green'
-    colours[2] = 'blue'
-    for v in range(n):
-        p = [v]
-        while not colours[v]:
-            v = t[v][0]
-            p.append(v)
-        c = colours[v]
-        for v in p:
-            colours[v] = c
-        x = [points[v][0] for v in p]
-        y = [points[v][1] for v in p]
-        m = ['.','None'][n > 200]
-        for i in range(len(p)-1):
-            plt.plot(x, y, color=c, lw=1, marker=m)
+    paths = lhp.partition
+    for path in lhp.partition:
+        x = [points[v][0] for v in path]
+        y = [points[v][1] for v in path]
+        plt.plot(x, y, color='purple', lw=2)
 
-    # # draw sperner triangle
-    # x = [(points[tau[i]][0], points[tau[(i+1)%3]][0]) for i in range(3)]
-    # y = [(points[tau[i]][1], points[tau[(i+1)%3]][1]) for i in range(3)]
-    # plt.fill(x, y, facecolor='lightsalmon', edgecolor='orangered', linewidth=0.5)
+
+    cmap = ['red', 'green', 'blue', 'yellow']
+    for v in range(n):
+        c = cmap[lhp.get_colour(v)]
+        # print(c, v)
+        plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o')
+
+    # draw sperner triangle
+    tau = lhp.tau
+    x = [(points[tau[i]][0], points[tau[(i+1)%3]][0]) for i in range(3)]
+    y = [(points[tau[i]][1], points[tau[(i+1)%3]][1]) for i in range(3)]
+    plt.fill(x, y, facecolor='lightsalmon', linewidth=0)
     # plt.plot(x, y, 'g')
+
+
 
     plt.axis('off')
     # plt.xlim(-0.3, 0.3)
     # plt.ylim(-0.3, 0.3)
     plt.gca().set_aspect('equal', adjustable='box')
     # plt.plot([1, 2, 3, 4])
-    # plt.show()
+    plt.show()
 
-    plt.savefig('nice-one.pdf')
+    # plt.savefig('nice-one.pdf')
