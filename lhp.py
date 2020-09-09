@@ -5,13 +5,16 @@ import random
 import subprocess
 import matplotlib.pyplot as plt
 
-
+######################################################################
+# Boring routines to build a "random" triangulation
+######################################################################
 def make_triangulation(n):
-    print("Calling rbox")
-    rbox = subprocess.run(["rbox", "D2", "y", str(n-3)], capture_output=True)
-    points = [s.split() for s in rbox.stdout.splitlines()]
-    points = [(float(s[0]),float(s[1])) for s in points[2:]]
+    # print("Calling rbox")
+    # rbox = subprocess.run(["rbox", "D2", "y", str(n-3)], capture_output=True)
+    # points = [s.split() for s in rbox.stdout.splitlines()]
+    # points = [(float(s[0]),float(s[1])) for s in points[2:]]
 
+    print("Generating random points")
     points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
              + [random_point() for _ in range(n-3)]
 
@@ -73,12 +76,9 @@ def random_point():
             return (x, y)
 
 
-
-
-
-
-
-
+######################################################################
+# Data structures supporting fast algorithm
+######################################################################
 class IntegerSet(object):
     def __init__(self, n, population=[]):
         ans = [-1, n]
@@ -187,6 +187,11 @@ class MarkedAncestorStruct(object):
         self.tour.append(r)
         self.intervals[r] = (a,b)
 
+
+
+######################################################################
+# Basic graph algorithms (BFS)
+######################################################################
 def bfs_forest(al, roots):
     q = deque(roots)
     seen = set(roots)
@@ -211,7 +216,8 @@ def children(t, v):
     return t[v][1:]
 
 
-# Get the smallest integer c>=0 that is not in colours
+
+""" Get the smallest integer c>=0 that is not in colours """
 def free_colour(colours):
     return min(set(range(len(colours)+1)).difference(colours))
 
@@ -221,6 +227,11 @@ def split_at(a, x):
     i = a.index(x)
     return a[:i+1], a[i:]
 
+
+
+######################################################################
+# The algorithm
+######################################################################
 class tripod_partition(object):
     def __init__(self, al, succ):
         self.al = al
@@ -257,11 +268,24 @@ class tripod_partition(object):
             return
 
         # paths[i] is non-empty for each i in {0,1,2}
-        e = (paths[0][-1], paths[1][0])
-        tau = self.sperner_triangle(e)
+
+
+        # this code is probably faster in most cases
+        # e = (paths[1][-1], paths[2][0])
+        # tau = self.sperner_triangle(e)
+
+        # this code guarantees O(n log n) running time
+        e = [ (paths[i][-1], paths[(i+1)%3][0]) for i in range(3)]
+        tau = self.sperner_triangle_parallel(e)
+
+        # rotate so that tau[i] leads to paths[i]
+        tcols = [self.get_colour(tau[i]) for i in range(3)]
+        shift = tcols.index(self.colours[paths[0][0]])
+        tau = [tau[(shift+i)%3] for i in range(3)]
+
+        # compute the legs of the tripod
         tripod = [self.tripod_path(tau[i]) for i in range(3)]
         self.tripods.append(tripod)
-
 
         # x[i] is point at which tripod[i] attaches to paths[i]
         # p[i] is result of splitting paths[i] at vertex x[i]
@@ -309,6 +333,27 @@ class tripod_partition(object):
                 e = e[0], v
             else:
                 e = v, e[1]
+
+    def sperner_triangle_parallel(self, e):
+        c0 = [None]*len(e)
+        c1 = [None]*len(e)
+        for i in range(len(e)):
+            c0[i] = self.get_colour(e[i][0])
+            c1[i] = self.get_colour(e[i][1])
+            assert(c0[i] != c1[i])
+        e = e[:]
+        while 1 < 2:
+            for i in range(len(e)):
+                v = self.succ[e[i][0]][e[i][1]]
+                c = self.get_colour(v)
+                if c != c0[i] and c != c1[i]:
+                    return e[i][0], e[i][1], v
+                if c != c0[i]:
+                    e[i] = e[i][0], v
+                else:
+                    e[i] = v, e[i][1]
+
+
 
     def set_colour(self, v, c):
         self.nma.mark(v)
