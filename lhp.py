@@ -4,6 +4,7 @@ from collections import deque, defaultdict
 import random
 import subprocess
 import matplotlib.pyplot as plt
+import time
 
 ######################################################################
 # Boring routines to build a "random" triangulation
@@ -233,11 +234,12 @@ def split_at(a, x):
 # The algorithm
 ######################################################################
 class tripod_partition(object):
-    def __init__(self, al, succ):
+    def __init__(self, al, succ, worst_case=True):
         self.al = al
         self.succ = succ
         roots = [2,1,0]  # has to be a triangular face
         self.t = bfs_forest(al, roots)
+        self.worst_case = worst_case
 
         self.nma = MarkedAncestorStruct(self.t, roots)
         self.colours = [4]*len(self.al)
@@ -267,21 +269,21 @@ class tripod_partition(object):
                 self.colours[paths[0][-1]] = c
             return
 
-        # paths[i] is non-empty for each i in {0,1,2}
+        # Now, paths[i] is non-empty for each i in {0,1,2}
 
+        if self.worst_case:
+            # this code guarantees O(n log n) running time
+            e = [ (paths[i][-1], paths[(i+1)%3][0]) for i in range(3)]
+            tau = self.sperner_triangle_parallel(e)
 
-        # this code is probably faster in most cases
-        # e = (paths[1][-1], paths[2][0])
-        # tau = self.sperner_triangle(e)
-
-        # this code guarantees O(n log n) running time
-        e = [ (paths[i][-1], paths[(i+1)%3][0]) for i in range(3)]
-        tau = self.sperner_triangle_parallel(e)
-
-        # rotate so that tau[i] leads to paths[i]
-        tcols = [self.get_colour(tau[i]) for i in range(3)]
-        shift = tcols.index(self.colours[paths[0][0]])
-        tau = [tau[(shift+i)%3] for i in range(3)]
+            # rotate so that tau[i] leads to paths[i]
+            tcols = [self.get_colour(tau[i]) for i in range(3)]
+            shift = tcols.index(self.colours[paths[0][0]])
+            tau = [tau[(shift+i)%3] for i in range(3)]
+        else:
+            # this code is probably faster in most cases
+            e = (paths[0][-1], paths[1][0])
+            tau = self.sperner_triangle(e)
 
         # compute the legs of the tripod
         tripod = [self.tripod_path(tau[i]) for i in range(3)]
@@ -375,8 +377,11 @@ if __name__ == "__main__":
     succ, al, points = make_triangulation(n)
 
     print("Computing tripod decomposition")
-    lhp = tripod_partition(al, succ)
+    start = time.time_ns()
+    lhp = tripod_partition(al, succ, True)
+    stop = time.time_ns()
     print("done")
+    print("Elapsed time: {}s".format((stop-start)*1e-9))
 
     if n > 500:
         sys.exit(0)
