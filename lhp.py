@@ -6,6 +6,79 @@ import subprocess
 import matplotlib.pyplot as plt
 
 
+def make_triangulation(n):
+    print("Calling rbox")
+    rbox = subprocess.run(["rbox", "D2", "y", str(n-3)], capture_output=True)
+    points = [s.split() for s in rbox.stdout.splitlines()]
+    points = [(float(s[0]),float(s[1])) for s in points[2:]]
+
+    points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
+             + [random_point() for _ in range(n-3)]
+
+    input = "2\n{}\n".format(n)
+    input += "\n".join(["{} {}".format(p[0], p[1]) for p in points])
+    input = input.encode('utf8')
+
+    print("Calling qhull")
+    qhull = subprocess.run(["qhull", "d", "i"], input=input,
+                           capture_output=True)
+    lines = qhull.stdout.splitlines()
+    f = 1 + int(lines[0])
+    faces = [(0,1,2)]  # see note below about orientation of outer face
+    for line in lines[1:]:
+        t = tuple([int(s) for s in line.split()])
+        faces.append(t)
+
+    al = [list() for _ in range(n)]
+
+    print("Building successor map")
+    succ = build_succ(faces)
+    # needed because qhull doesn't consistently orient the outer face
+    if not succ:
+        print("Trying again")
+        faces[0] = (2,1,0)
+        succ = build_succ(faces)
+    if not succ:
+        print("ERROR: Unable to build successors")
+
+    print("Building adjacency lists")
+    # print(succ)
+    for u in range(n):
+        v = list(succ[u])[0]  # better way to do this?
+        al[u].append(v)
+        next = succ[u][v]
+        while next != v:
+            al[u].append(next)
+            next = succ[u][next]
+    return succ, al, points
+
+
+def build_succ(faces):
+    succ = [dict() for _ in range(n)]
+    for t in faces:
+        for i in range(3):
+            (u,v,w) = t[i], t[(i+1)%3], t[(i+2)%3]
+            if v in succ[u]:
+                print("WARNING: Overwriting successor")
+                print(u, succ[u], u, v, w)
+                return None
+            succ[u][v] = w
+    return succ
+
+def random_point():
+    while 1 < 2:
+        x = 2*random.random()-1
+        y = 2*random.random()-1
+        if x**2 + y**2 < 1:
+            return (x, y)
+
+
+
+
+
+
+
+
 class IntegerSet(object):
     def __init__(self, n, population=[]):
         ans = [-1, n]
@@ -74,10 +147,12 @@ class MarkedAncestorStruct(object):
 
         m = len(self.tour)
         self.intset = IntegerSet(m)
-        print(self.intset)
         self.marked = [False]*n
         for r in roots:
             self.mark(r)
+
+    def is_marked(self, v):
+        return self.marked[v]
 
     def mark(self, v):
         self.marked[v] = True
@@ -112,7 +187,7 @@ class MarkedAncestorStruct(object):
         self.tour.append(r)
         self.intervals[r] = (a,b)
 
-def bfs_tree(al, roots):
+def bfs_forest(al, roots):
     q = deque(roots)
     seen = set(roots)
     t = [list() for _ in al]
@@ -128,49 +203,95 @@ def bfs_tree(al, roots):
                 t[v].append(w)  # makes w a child of v
     return t
 
-class layered_h_partition(object):
+
+def parent(t, v):
+    return t[v][0]
+
+def children(t, v):
+    return t[v][1:]
+
+
+# Get the smallest integer c>=0 that is not in colours
+def free_colour(colours):
+    return min(set(range(len(colours)+1)).difference(colours))
+
+
+""" Split the sequence a into two sequences, the shortest prefix containing x and the longest suffix containing x"""
+def split_at(a, x):
+    i = a.index(x)
+    return a[:i+1], a[i:]
+
+class tripod_partition(object):
     def __init__(self, al, succ):
         self.al = al
         self.succ = succ
-        roots = [0,1,2]  # has to be a triangular face
-        self.t = bfs_tree(al, roots)
+        roots = [2,1,0]  # has to be a triangular face
+        self.t = bfs_forest(al, roots)
 
         self.nma = MarkedAncestorStruct(self.t, roots)
-        self.colours = [None]*len(self.al)
+        self.colours = [4]*len(self.al)
         for i in range(len(roots)):
             r = roots[i]
             self.set_colour(r, i)
 
         paths = [[x] for x in roots]
-        self.partition = paths
-
+        self.tripods = [paths]
         self.compute(paths)
 
+    """ Compute the partition into tripods """
     def compute(self, paths):
-        assert(len(paths) == 3)
-        p1, p2, p3 = paths
-        e = (p2[-1],p1[0])
-        self.tau = self.sperner_triangle(e)
-        tau = self.tau
-        tripod_paths = [self.tripod_path(tau[i]) for i in range(3)]
-        self.partition.extend(tripod_paths)
-        print(tripod_paths)
-        for path in tripod_paths:
-            for v in path:
-                self.set_colour(v, 3)
+        # paths[0], paths[1] are non-empty, paths[2] may be empty
+        if not paths[2]:
+            cprime = free_colour([self.colours[paths[0][0]],
+                                  self.colours[paths[1][0]]])
+            if len(paths[1]) > 1:
+                c = self.colours[paths[1][-1]]
+                self.colours[paths[1][-1]] = cprime
+                self.compute([paths[0], paths[1][:-1], paths[1][-1:]])
+                self.colours[paths[1][-1]] = c
+            elif len(paths[0]) > 1:
+                c = self.colours[paths[0][-1]]
+                self.colours[paths[0][-1]] = cprime
+                self.compute([paths[0][:-1], paths[0][-1:], paths[1]])
+                self.colours[paths[0][-1]] = c
+            return
 
-        # Continue here identifying q1, q2, and q3.
-        z3 := tripod_paths[0][::-1] + tripod_paths[1]
-        x2 = self.t[tripod_paths[1][-1]][0]
-        z2 = suffix(p2, x2)
-        x1 = self.t[tripod_paths[0][0]][0]
-        z1 = prefix(p1, x1)
-        self.compute(self, [z1, z2, z3])
+        # paths[i] is non-empty for each i in {0,1,2}
+        e = (paths[0][-1], paths[1][0])
+        tau = self.sperner_triangle(e)
+        tripod = [self.tripod_path(tau[i]) for i in range(3)]
+        self.tripods.append(tripod)
+
+
+        # x[i] is point at which tripod[i] attaches to paths[i]
+        # p[i] is result of splitting paths[i] at vertex x[i]
+        x = list()
+        p = list()
+        for i in range(3):
+            if tripod[i]:
+                x.append(parent(self.t, tripod[i][-1]))
+            else:
+                x.append(tau[i])
+            p.append(split_at(paths[i], x[i]))
+
+        # colour the tripod with a colour not used by paths[i]
+        c = free_colour([self.get_colour(tau[i]) for i in range(3)])
+        for path in tripod:
+            for v in path:
+                self.set_colour(v, c)
+
+        # recurse on three subproblems
+        q = [None]*3
+        for i in range(3):
+            q[0] = p[i][1]
+            q[1] = p[(i+1)%3][0]
+            q[2] = tripod[(i+1)%3][::-1] + tripod[i]
+            self.compute(q)
 
 
     def tripod_path(self, v):
         path = list()
-        while self.colours[v] == None:
+        while not self.nma.is_marked(v):
             path.append(v)
             v = self.t[v][0]
         return path
@@ -198,29 +319,6 @@ class layered_h_partition(object):
         return self.colours[a]
 
 
-
-
-def build_succ(faces):
-    succ = [dict() for _ in range(n)]
-    for t in faces:
-        for i in range(3):
-            (u,v,w) = t[i], t[(i+1)%3], t[(i+2)%3]
-            if v in succ[u]:
-                print("WARNING: Overwriting successor")
-                print(u, succ[u], u, v, w)
-                return None
-            succ[u][v] = w
-    return succ
-
-def random_point():
-    while 1 < 2:
-        x = 2*random.random()-1
-        y = 2*random.random()-1
-        if x**2 + y**2 < 1:
-            return (x, y)
-
-
-
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         n = int(sys.argv[1])
@@ -229,64 +327,14 @@ if __name__ == "__main__":
 
     print("n = {}".format(n))
 
-    print("Calling rbox")
-    rbox = subprocess.run(["rbox", "D2", "y", str(n-3)], capture_output=True)
-    points = [s.split() for s in rbox.stdout.splitlines()]
-    points = [(float(s[0]),float(s[1])) for s in points[2:]]
+    succ, al, points = make_triangulation(n)
 
-    points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
-             + [random_point() for _ in range(n-3)]
-
-    input = "2\n{}\n".format(n)
-    input += "\n".join(["{} {}".format(p[0], p[1]) for p in points])
-    input = input.encode('utf8')
-
-    print(input)
-    print("Calling qhull")
-    qhull = subprocess.run(["qhull", "d", "i"], input=input,
-                           capture_output=True)
-    lines = qhull.stdout.splitlines()
-    f = 1 + int(lines[0])
-    faces = [(0,1,2)]  # see note below about orientation of outer face
-    for line in lines[1:]:
-        t = tuple([int(s) for s in line.split()])
-        faces.append(t)
-
-    print("f = {}".format(f))
-
-    # print(faces)
-    # print(len(faces))
-    al = [list() for _ in range(n)]
-
-    print("Building successor map")
-    succ = build_succ(faces)
-    # needed because qhull doesn't consistently orient the outer face
-    if not succ:
-        print("Trying again")
-        faces[0] = (2,1,0)
-        succ = build_succ(faces)
-    if not succ:
-        print("ERROR: Unable to build successors")
-
-    print("Building adjacency lists")
-    # print(succ)
-    for u in range(n):
-        v = list(succ[u])[0]  # better way to do this?
-        al[u].append(v)
-        next = succ[u][v]
-        while next != v:
-            al[u].append(next)
-            next = succ[u][next]
-
-
-
-    print("Initializing layered H-partition")
-    lhp = layered_h_partition(al, succ)
-
-    # print("==== adjacency list ====")
-    # print(al)
-
+    print("Computing tripod decomposition")
+    lhp = tripod_partition(al, succ)
     print("done")
+
+    if n > 500:
+        sys.exit(0)
 
      # draw graph
     for v in range(len(al)):
@@ -294,40 +342,34 @@ if __name__ == "__main__":
             plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='gray', lw=0.2)
 
     # draw spanning tree
-    # for v in range(len(t)):
-    #     for w in t[v][1:]:
-    #         plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], 'r')
+    for v in range(len(lhp.t)):
+        for w in lhp.t[v][1:]:
+            plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='black', lw=1)
 
-    # draw sperner paths
-    # for i in range(3):
-    #     v = tau[i]
-    #     while v > 2:
-    #         next = t[v][0]
-    #         plt.plot([points[v][0], points[next][0]],
-    #                  [points[v][1], points[next][1]], color='purple', lw=2)
-    #         v = next
+    cmap = ['red', 'green', 'blue', 'yellow', 'gray']
 
-    paths = lhp.partition
-    for path in lhp.partition:
-        x = [points[v][0] for v in path]
-        y = [points[v][1] for v in path]
-        plt.plot(x, y, color='purple', lw=2)
+    # Draw tripods
+    for tripod in lhp.tripods:
+        a = tripod[0] + tripod[1] + tripod[2]
+        if a and not 0 in a:
+            # Draw the legs
+            c = lhp.colours[a[0]]
+            for path in tripod:
+                if path:
+                    # path = path + [parent(lhp.t, path[-1])]
+                    x = [points[v][0] for v in path]
+                    y = [points[v][1] for v in path]
+                    plt.plot(x, y, color=cmap[c], lw=2)
+            # Draw the Sperner triangle
+            tau = [leg[0] for leg in tripod if leg]
+            tau.append(tau[0])
+            x = [points[tau[i]][0] for i in range(len(tau))]
+            y = [points[tau[i]][1] for i in range(len(tau))]
+            plt.fill(x, y, facecolor=cmap[c], linewidth=0)
 
-
-    cmap = ['red', 'green', 'blue', 'yellow']
     for v in range(n):
-        c = cmap[lhp.get_colour(v)]
-        # print(c, v)
+        c = cmap[lhp.colours[v]]
         plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o')
-
-    # draw sperner triangle
-    tau = lhp.tau
-    x = [(points[tau[i]][0], points[tau[(i+1)%3]][0]) for i in range(3)]
-    y = [(points[tau[i]][1], points[tau[(i+1)%3]][1]) for i in range(3)]
-    plt.fill(x, y, facecolor='lightsalmon', linewidth=0)
-    # plt.plot(x, y, 'g')
-
-
 
     plt.axis('off')
     # plt.xlim(-0.3, 0.3)
