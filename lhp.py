@@ -1,80 +1,5 @@
 #!/usr/bin/python3
-import sys
-from collections import deque, defaultdict
-import random
-import subprocess
-import matplotlib.pyplot as plt
-import time
-
-######################################################################
-# Boring routines to build a "random" triangulation
-######################################################################
-def make_triangulation(n):
-    # print("Calling rbox")
-    # rbox = subprocess.run(["rbox", "D2", "y", str(n-3)], capture_output=True)
-    # points = [s.split() for s in rbox.stdout.splitlines()]
-    # points = [(float(s[0]),float(s[1])) for s in points[2:]]
-
-    print("Generating random points")
-    points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
-             + [random_point() for _ in range(n-3)]
-
-    input = "2\n{}\n".format(n)
-    input += "\n".join(["{} {}".format(p[0], p[1]) for p in points])
-    input = input.encode('utf8')
-
-    print("Calling qhull")
-    qhull = subprocess.run(["qhull", "d", "i"], input=input,
-                           capture_output=True)
-    lines = qhull.stdout.splitlines()
-    f = 1 + int(lines[0])
-    faces = [(0,1,2)]  # see note below about orientation of outer face
-    for line in lines[1:]:
-        t = tuple([int(s) for s in line.split()])
-        faces.append(t)
-
-    al = [list() for _ in range(n)]
-
-    print("Building successor map")
-    succ = build_succ(faces)
-    # needed because qhull doesn't consistently orient the outer face
-    if not succ:
-        print("Trying again")
-        faces[0] = (2,1,0)
-        succ = build_succ(faces)
-    if not succ:
-        print("ERROR: Unable to build successors")
-
-    print("Building adjacency lists")
-    # print(succ)
-    for u in range(n):
-        v = list(succ[u])[0]  # better way to do this?
-        al[u].append(v)
-        next = succ[u][v]
-        while next != v:
-            al[u].append(next)
-            next = succ[u][next]
-    return succ, al, points
-
-
-def build_succ(faces):
-    succ = [dict() for _ in range(n)]
-    for t in faces:
-        for i in range(3):
-            (u,v,w) = t[i], t[(i+1)%3], t[(i+2)%3]
-            if v in succ[u]:
-                print("WARNING: Overwriting successor")
-                print(u, succ[u], u, v, w)
-                return None
-            succ[u][v] = w
-    return succ
-
-def random_point():
-    while 1 < 2:
-        x = 2*random.random()-1
-        y = 2*random.random()-1
-        if x**2 + y**2 < 1:
-            return (x, y)
+import collections
 
 
 ######################################################################
@@ -123,7 +48,6 @@ class IntegerSet(object):
         return "IntegerSet({},[{}])".format(self.n,
                                              ",".join(str(x) for x in self))
 
-
 class IntegerSetIterator(object):
     def __init__(self, s):
         self.s = s
@@ -140,11 +64,13 @@ class IntegerSetIterator(object):
 
 class MarkedAncestorStruct(object):
     def __init__(self, tree, roots):
+        n = len(tree)
         self.tree = tree
         self.intervals = [None]*n
+
         self.tour = list()
         for r in roots:
-            self._euler_tour(r)
+            self.euler_tour(r)
 
         m = len(self.tour)
         self.intset = IntegerSet(m)
@@ -177,28 +103,36 @@ class MarkedAncestorStruct(object):
     def is_marked(self, v):
         return self.marked[v]
 
-    # TODO: This shouldn't be recursive
-    def _euler_tour(self, r):
-        i = len(self.tour)
-        a = len(self.tour)
+    def euler_tour(self, r):
+        tour = list()
+        stack = list()
+        stack.append((r, 1))
+        self.intervals[r] = len(self.tour)
         self.tour.append(r)
-        for i in range(1, len(self.tree[r])):
-            self._euler_tour(self.tree[r][i])
-        b = len(self.tour)
-        self.tour.append(r)
-        self.intervals[r] = (a,b)
-
-
+        while (stack):
+            u, i = stack.pop()
+            if i < len(self.tree[u]):
+                stack.append((u, i+1))
+                v = self.tree[u][i]
+                stack.append((v, 1))
+                self.intervals[v] = len(self.tour)
+                self.tour.append(v)
+            else:
+                self.intervals[u] = (self.intervals[u], len(self.tour))
+                self.tour.append(u)
+        return tour
 
 ######################################################################
-# Basic graph algorithms (BFS)
+# Basic graph algorithm (BFS)
+# We use an adjacency list representation of a tree where t[i][0] is
+# the parent of i and t[i][1:] are the children of i.
 ######################################################################
 def bfs_forest(al, roots):
-    q = deque(roots)
-    seen = set(roots)
     t = [list() for _ in al]
-    for v in q:
+    for v in roots:
         t[v].append(-1)
+    q = collections.deque(roots)
+    seen = set(roots)
     while len(q) > 0:
         v = q.pop()
         for w in al[v]:
@@ -209,25 +143,23 @@ def bfs_forest(al, roots):
                 t[v].append(w)  # makes w a child of v
     return t
 
-
 def parent(t, v):
     return t[v][0]
 
 def children(t, v):
     return t[v][1:]
 
-
-
+######################################################################
+# A few helper functions
+######################################################################
 """ Get the smallest integer c>=0 that is not in colours """
 def free_colour(colours):
     return min(set(range(len(colours)+1)).difference(colours))
-
 
 """ Split the sequence a into two sequences, the shortest prefix containing x and the longest suffix containing x"""
 def split_at(a, x):
     i = a.index(x)
     return a[:i+1], a[i:]
-
 
 
 ######################################################################
@@ -364,68 +296,3 @@ class tripod_partition(object):
     def get_colour(self, v):
         a = self.nma.nearest_marked_ancestor(v)
         return self.colours[a]
-
-
-if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        n = int(sys.argv[1])
-    else:
-        n = 10
-
-    print("n = {}".format(n))
-
-    succ, al, points = make_triangulation(n)
-
-    print("Computing tripod decomposition")
-    start = time.time_ns()
-    lhp = tripod_partition(al, succ, True)
-    stop = time.time_ns()
-    print("done")
-    print("Elapsed time: {}s".format((stop-start)*1e-9))
-
-    if n > 500:
-        sys.exit(0)
-
-     # draw graph
-    for v in range(len(al)):
-        for w in al[v]:
-            plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='gray', lw=0.2)
-
-    # draw spanning tree
-    for v in range(len(lhp.t)):
-        for w in lhp.t[v][1:]:
-            plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='black', lw=1)
-
-    cmap = ['red', 'green', 'blue', 'yellow', 'gray']
-
-    # Draw tripods
-    for tripod in lhp.tripods:
-        a = tripod[0] + tripod[1] + tripod[2]
-        if a and not 0 in a:
-            # Draw the legs
-            c = lhp.colours[a[0]]
-            for path in tripod:
-                if path:
-                    # path = path + [parent(lhp.t, path[-1])]
-                    x = [points[v][0] for v in path]
-                    y = [points[v][1] for v in path]
-                    plt.plot(x, y, color=cmap[c], lw=2)
-            # Draw the Sperner triangle
-            tau = [leg[0] for leg in tripod if leg]
-            tau.append(tau[0])
-            x = [points[tau[i]][0] for i in range(len(tau))]
-            y = [points[tau[i]][1] for i in range(len(tau))]
-            plt.fill(x, y, facecolor=cmap[c], linewidth=0)
-
-    for v in range(n):
-        c = cmap[lhp.colours[v]]
-        plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o')
-
-    plt.axis('off')
-    # plt.xlim(-0.3, 0.3)
-    # plt.ylim(-0.3, 0.3)
-    plt.gca().set_aspect('equal', adjustable='box')
-    # plt.plot([1, 2, 3, 4])
-    plt.show()
-
-    # plt.savefig('nice-one.pdf')
