@@ -181,6 +181,8 @@ class tripod_partition(object):
 
         paths = [[x] for x in roots]
         self.tripods = [paths]
+        self.sperners = list()
+        self.sperner_colours = list();
         self.compute(paths)
 
     """ Compute the partition into tripods """
@@ -232,11 +234,15 @@ class tripod_partition(object):
                 x.append(tau[i])
             p.append(split_at(paths[i], x[i]))
 
+
         # colour the tripod with a colour not used by paths[i]
         c = free_colour([self.get_colour(tau[i]) for i in range(3)])
         for path in tripod:
             for v in path:
                 self.set_colour(v, c)
+
+        self.sperners.append(tau)
+        self.sperner_colours.append(c)
 
         # recurse on three subproblems
         q = [None]*3

@@ -16,6 +16,7 @@ def make_triangulation(n):
     # points = [(float(s[0]),float(s[1])) for s in points[2:]]
 
     print("Generating random points")
+    random.seed(0)
     points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
              + [random_point() for _ in range(n-3)]
 
@@ -88,16 +89,16 @@ if __name__ == "__main__":
 
     succ, al, points = make_triangulation(n)
 
-    print("Computing tripod decomposition (n^2)")
+    print("Computing tripod decomposition (worst-case)")
     start = time.time_ns()
-    tp = lhp.tripod_partition(al, succ, False)
+    tp = lhp.tripod_partition(al, succ, True)
     stop = time.time_ns()
     print("done")
     print("Elapsed time: {}s".format((stop-start)*1e-9))
 
-    print("Computing tripod decomposition (worst-case)")
+    print("Computing tripod decomposition (n^2)")
     start = time.time_ns()
-    tp = lhp.tripod_partition(al, succ, True)
+    tp = lhp.tripod_partition(al, succ, False)
     stop = time.time_ns()
     print("done")
     print("Elapsed time: {}s".format((stop-start)*1e-9))
@@ -116,7 +117,18 @@ if __name__ == "__main__":
         for w in tp.t[v][1:]:
             plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='black', lw=1)
 
-    cmap = ['red', 'green', 'blue', 'orange', 'gray']
+    cmap = ['red', 'green', 'blue', 'darkorange', 'ghostwhite']
+    fmap = ['salmon', 'lightgreen', 'lightblue', 'moccasin', 'ghostwhite']
+
+    # Draw sperner triangles
+    for k in range(len(tp.sperners)):
+        # Draw the Sperner triangle
+        # tau.append(tau[0])
+        tau = tp.sperners[k]
+        c = tp.sperner_colours[k]
+        x = [points[tau[i]][0] for i in range(len(tau))]
+        y = [points[tau[i]][1] for i in range(len(tau))]
+        plt.fill(x, y, facecolor=fmap[c], linewidth=0)
 
     # Draw tripods
     for tripod in tp.tripods:
@@ -129,13 +141,10 @@ if __name__ == "__main__":
                     # path = path + [parent(tp.t, path[-1])]
                     x = [points[v][0] for v in path]
                     y = [points[v][1] for v in path]
+                    if v not in [0, 1, 2]:
+                        x.append(points[tp.t[path[-1]][0]][0])
+                        y.append(points[tp.t[path[-1]][0]][1])
                     plt.plot(x, y, color=cmap[c], lw=2)
-            # Draw the Sperner triangle
-            tau = [leg[0] for leg in tripod if leg]
-            tau.append(tau[0])
-            x = [points[tau[i]][0] for i in range(len(tau))]
-            y = [points[tau[i]][1] for i in range(len(tau))]
-            plt.fill(x, y, facecolor=cmap[c], linewidth=0)
 
     for v in range(n):
         c = cmap[tp.colours[v]]
