@@ -9,3 +9,6 @@ As a side-effect, this algorithm computes a 4-colouring of G such that
 - all vertices of each tripod have the same colour (so this is really a colouring of the tripods)
 - if two tripods have the same colour then there is no edge between them.
 
+The program lhp_demo.py produces pictures that look like this:
+
+![tripod decomposition](figure.png "Tripod decomposition")
