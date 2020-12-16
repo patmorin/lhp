@@ -181,8 +181,6 @@ class tripod_partition(object):
 
         paths = [[x] for x in roots]
         self.tripods = [paths]
-        self.sperners = list()
-        self.sperner_colours = list();
         self.compute(paths)
 
     """ Compute the partition into tripods """
@@ -221,7 +219,8 @@ class tripod_partition(object):
 
         # compute the legs of the tripod
         tripod = [self.tripod_path(tau[i]) for i in range(3)]
-        self.tripods.append(tripod)
+        if tripod[0] or tripod[1] or tripod[2]:
+            self.tripods.append(tripod)
 
         # x[i] is point at which tripod[i] attaches to paths[i]
         # p[i] is result of splitting paths[i] at vertex x[i]
@@ -240,9 +239,6 @@ class tripod_partition(object):
         for path in tripod:
             for v in path:
                 self.set_colour(v, c)
-
-        self.sperners.append(tau)
-        self.sperner_colours.append(c)
 
         # recurse on three subproblems
         q = [None]*3

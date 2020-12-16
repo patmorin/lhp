@@ -120,31 +120,26 @@ if __name__ == "__main__":
     cmap = ['red', 'green', 'blue', 'darkorange', 'ghostwhite']
     fmap = ['salmon', 'lightgreen', 'lightblue', 'moccasin', 'ghostwhite']
 
-    # Draw sperner triangles
-    for k in range(len(tp.sperners)):
-        # Draw the Sperner triangle
-        # tau.append(tau[0])
-        tau = tp.sperners[k]
-        c = tp.sperner_colours[k]
-        x = [points[tau[i]][0] for i in range(len(tau))]
-        y = [points[tau[i]][1] for i in range(len(tau))]
-        plt.fill(x, y, facecolor=fmap[c], linewidth=0)
-
     # Draw tripods
     for tripod in tp.tripods:
         a = tripod[0] + tripod[1] + tripod[2]
-        if a and not 0 in a:
-            # Draw the legs
-            c = tp.colours[a[0]]
-            for path in tripod:
-                if path:
-                    # path = path + [parent(tp.t, path[-1])]
-                    x = [points[v][0] for v in path]
-                    y = [points[v][1] for v in path]
-                    if v not in [0, 1, 2]:
-                        x.append(points[tp.t[path[-1]][0]][0])
-                        y.append(points[tp.t[path[-1]][0]][1])
-                    plt.plot(x, y, color=cmap[c], lw=2)
+        c = tp.colours[a[0]]
+        for path in tripod:
+            if path:
+                # path = path + [parent(tp.t, path[-1])]
+                x = [points[v][0] for v in path]
+                y = [points[v][1] for v in path]
+                if path[-1] not in [0, 1, 2]:
+                    x.append(points[tp.t[path[-1]][0]][0])
+                    y.append(points[tp.t[path[-1]][0]][1])
+                plt.plot(x, y, color=cmap[c], lw=2)
+        tau = tripod[0][:1] + tripod[1][:1] + tripod[2][:1]
+        if 0 not in tau:
+            tau.append(tau[0])
+            x = [points[v][0] for v in tau]
+            y = [points[v][1] for v in tau]
+            plt.fill(x[:-1], y[:-1], facecolor=fmap[c], lw=0)
+            plt.plot(x, y, color=cmap[c], lw=2)
 
     for v in range(n):
         c = cmap[tp.colours[v]]
