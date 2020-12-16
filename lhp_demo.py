@@ -116,7 +116,7 @@ if __name__ == "__main__":
         for w in tp.t[v][1:]:
             plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='black', lw=1)
 
-    cmap = ['red', 'green', 'blue', 'yellow', 'gray']
+    cmap = ['red', 'green', 'blue', 'orange', 'gray']
 
     # Draw tripods
     for tripod in tp.tripods:
