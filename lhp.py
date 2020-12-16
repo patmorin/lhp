@@ -287,8 +287,6 @@ class tripod_partition(object):
                 else:
                     e[i] = v, e[i][1]
 
-
-
     def set_colour(self, v, c):
         self.nma.mark(v)
         self.colours[v] = c

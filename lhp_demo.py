@@ -88,7 +88,14 @@ if __name__ == "__main__":
 
     succ, al, points = make_triangulation(n)
 
-    print("Computing tripod decomposition")
+    print("Computing tripod decomposition (n^2)")
+    start = time.time_ns()
+    tp = lhp.tripod_partition(al, succ, False)
+    stop = time.time_ns()
+    print("done")
+    print("Elapsed time: {}s".format((stop-start)*1e-9))
+
+    print("Computing tripod decomposition (worst-case)")
     start = time.time_ns()
     tp = lhp.tripod_partition(al, succ, True)
     stop = time.time_ns()
