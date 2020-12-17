@@ -166,20 +166,21 @@ def split_at(a, x):
 # The algorithm
 ######################################################################
 class tripod_partition(object):
-    def __init__(self, succ, worst_case=True):
+    def __init__(self, succ, worst_case=True, roots=[2,1,0]):
         self.succ = succ
-        roots = [2,1,0]  # has to be a triangular face
         self.t = bfs_forest(succ, roots)  # TODO: avoid conversion
         self.worst_case = worst_case
 
         self.nma = MarkedAncestorStruct(self.t, roots)
+        self.tripod_map = [0, 0, 0] + [None] * (len(succ)-3)
         self.colours = [4] * len(succ)
         for i in range(len(roots)):
-            r = roots[i]
-            self.set_colour(r, i)
+            self.set_colour(roots[i], i)
 
         paths = [[x] for x in roots]
         self.tripods = [paths]
+        self.tripod_colours = [3]
+        self.tripod_tree = [[1]]
         self.compute(paths)
 
     """ Compute the partition into tripods """
@@ -199,7 +200,6 @@ class tripod_partition(object):
                 self.compute([paths[0][:-1], paths[0][-1:], paths[1]])
                 self.colours[paths[0][-1]] = c
             return
-
         # Now, paths[i] is non-empty for each i in {0,1,2}
 
         if self.worst_case:
@@ -218,41 +218,47 @@ class tripod_partition(object):
 
         # compute the legs of the tripod
         tripod = [self.tripod_path(tau[i]) for i in range(3)]
-        if tripod[0] or tripod[1] or tripod[2]:
-            self.tripods.append(tripod)
+        ti = len(self.tripods)
+        self.tripods.append(tripod)
 
-        # x[i] is point at which tripod[i] attaches to paths[i]
-        # p[i] is result of splitting paths[i] at vertex x[i]
-        x = list()
-        p = list()
-        for i in range(3):
-            if tripod[i]:
-                x.append(parent(self.t, tripod[i][-1]))
-            else:
-                x.append(tau[i])
-            p.append(split_at(paths[i], x[i]))
-
-
-        # colour the tripod with a colour not used by paths[i]
+        # colour the tripod with a colour not used by tau
         c = free_colour([self.get_colour(tau[i]) for i in range(3)])
+        self.tripod_colours.append(c)
+
+        # map and colour the vertices in the tripod
+        useless = True
         for path in tripod:
-            for v in path:
+            for v in path[:-1]:
+                useless = False
+                self.tripod_map[v] = ti
                 self.set_colour(v, c)
 
         # recurse on three subproblems
+        p = [split_at(paths[i], tripod[i][-1]) for i in range(3)]
         q = [None]*3
+        children = [None]*3
+        self.tripod_tree.append(children)
         for i in range(3):
             q[0] = p[i][1]
             q[1] = p[(i+1)%3][0]
-            q[2] = tripod[(i+1)%3][::-1] + tripod[i]
+            q[2] = tripod[(i+1)%3][-2::-1] + tripod[i][:-1]
+            x = len(self.tripods)
             self.compute(q)
-
+            if x < len(self.tripods):
+                children[i] = x
+                useless = False
+        if useless:
+            # useless tripod has an empty tripod and no non-empty children
+            self.tripods.pop()
+            self.tripod_colours.pop()
+            self.tripod_tree.pop()
 
     def tripod_path(self, v):
         path = list()
         while not self.nma.is_marked(v):
             path.append(v)
             v = self.t[v][0]
+        path.append(v)
         return path
 
     def sperner_triangle(self, e):

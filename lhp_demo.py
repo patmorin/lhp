@@ -16,7 +16,7 @@ def make_triangulation(n):
     # points = [(float(s[0]),float(s[1])) for s in points[2:]]
 
     print("Generating random points")
-    random.seed(0)
+    # random.seed(0)
     points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
              + [random_point() for _ in range(n-3)]
 
@@ -127,6 +127,10 @@ if __name__ == "__main__":
         print("Not displaying results since n = {} > 500".format(n))
         sys.exit(0)
 
+    for i in range(len(tp.tripod_tree)):
+        # print("tripod {}: {}".format(i, tp.tripods[i]))
+        print("{}=>{}".format(i, tp.tripod_tree[i]))
+
     # draw graph
     for v in range(len(succ)):
         for w in succ[v]:
@@ -141,28 +145,35 @@ if __name__ == "__main__":
     fmap = ['salmon', 'lightgreen', 'lightblue', 'moccasin', 'ghostwhite']
 
     # Draw tripods
-    for tripod in tp.tripods:
-        a = tripod[0] + tripod[1] + tripod[2]
-        c = tp.colours[a[0]]
+    for i in range(len(tp.tripods)):
+        tripod = tp.tripods[i]
+        c = tp.tripod_colours[i]
+        a = tripod[0][:-1] + tripod[1][:-1] + tripod[2][:-1]
         for path in tripod:
-            if path:
-                # path = path + [parent(tp.t, path[-1])]
-                x = [points[v][0] for v in path]
-                y = [points[v][1] for v in path]
-                if path[-1] not in [0, 1, 2]:
-                    x.append(points[tp.t[path[-1]][0]][0])
-                    y.append(points[tp.t[path[-1]][0]][1])
-                plt.plot(x, y, color=cmap[c], lw=2)
-        tau = tripod[0][:1] + tripod[1][:1] + tripod[2][:1]
-        if 0 not in tau:
-            tau.append(tau[0])
+            x = [points[v][0] for v in path]
+            y = [points[v][1] for v in path]
+            plt.plot(x, y, color=cmap[c], lw=2)
+        tau = [tripod[i][0] for i in range(3)]
+        if i != 0:
             x = [points[v][0] for v in tau]
             y = [points[v][1] for v in tau]
-            plt.fill(x[:-1], y[:-1], facecolor=fmap[c], lw=0)
-            plt.plot(x, y, color=cmap[c], lw=2)
+            plt.fill(x, y, facecolor=fmap[c], lw=0)
+            x = sum(x)/3
+            y = sum(y)/3
+            plt.text(x, y, str(i), horizontalalignment='center', verticalalignment='center')
 
+            tau2 = [v for v in tau if v in a]
+            print("tau_{} = {}".format(i, tau2))
+            if tau2:
+                tau2.append(tau2[0])
+                x = [points[v][0] for v in tau2]
+                y = [points[v][1] for v in tau2]
+                plt.plot(x, y, color=cmap[c], lw=2)
+
+    print(tp.tripods)
+    print(tp.tripod_map)
     for v in range(n):
-        c = cmap[tp.colours[v]]
+        c = cmap[tp.get_colour(v)]
         plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o')
 
     plt.axis('off')
