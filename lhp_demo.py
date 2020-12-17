@@ -46,16 +46,16 @@ def make_triangulation(n):
     if not succ:
         print("ERROR: Unable to build successors")
 
-    print("Building adjacency lists")
-    # print(succ)
-    for u in range(n):
-        v = list(succ[u])[0]  # better way to do this?
-        al[u].append(v)
-        next = succ[u][v]
-        while next != v:
-            al[u].append(next)
-            next = succ[u][next]
-    return succ, al, points
+    # print("Building adjacency lists")
+    # # print(succ)
+    # for u in range(n):
+    #     v = list(succ[u])[0]  # better way to do this?
+    #     al[u].append(v)
+    #     next = succ[u][v]
+    #     while next != v:
+    #         al[u].append(next)
+    #         next = succ[u][next]
+    return succ, points
 
 
 def build_succ(faces):
@@ -87,18 +87,18 @@ if __name__ == "__main__":
 
     print("n = {}".format(n))
 
-    succ, al, points = make_triangulation(n)
+    succ, points = make_triangulation(n)
 
-    print("Computing tripod decomposition (worst-case)")
+    print("Computing tripod decomposition using O(n log n) algorithm")
     start = time.time_ns()
-    tp = lhp.tripod_partition(al, succ, True)
+    tp = lhp.tripod_partition(succ, True)
     stop = time.time_ns()
     print("done")
     print("Elapsed time: {}s".format((stop-start)*1e-9))
 
-    print("Computing tripod decomposition (n^2)")
+    print("Computing tripod decomposition using O(n^2) algorithms")
     start = time.time_ns()
-    tp = lhp.tripod_partition(al, succ, False)
+    tp = lhp.tripod_partition(succ, False)
     stop = time.time_ns()
     print("done")
     print("Elapsed time: {}s".format((stop-start)*1e-9))
@@ -107,7 +107,8 @@ if __name__ == "__main__":
         print("Not displaying results since n = {} > 500".format(n))
         sys.exit(0)
 
-     # draw graph
+    # draw graph
+    al = lhp.succ2al(succ) 
     for v in range(len(al)):
         for w in al[v]:
             plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='gray', lw=0.2)

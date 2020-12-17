@@ -126,13 +126,14 @@ class MarkedAncestorStruct(object):
 # Basic graph algorithm (BFS)
 # We use an adjacency list representation of a tree where t[i][0] is
 # the parent of i and t[i][1:] are the children of i.
+# # TODO: rewrite this so that it works directly with succ
 ######################################################################
 def bfs_forest(al, roots):
     t = [list() for _ in al]
     for v in roots:
         t[v].append(-1)
     q = collections.deque(roots)
-    seen = set(roots)
+    seen = set(roots)  # TODO: array would be faster
     while len(q) > 0:
         v = q.pop()
         for w in al[v]:
@@ -162,19 +163,31 @@ def split_at(a, x):
     return a[:i+1], a[i:]
 
 
+""" Convert a triangle-based adjacency representation into an adjacency-list representation """
+def succ2al(succ):
+    al = list()
+    for sd in succ:
+        al.append(list())
+        v0 = next(iter(sd))
+        v = v0
+        while True: # emulating do ... while v != v0
+            al[-1].append(v)
+            v = sd[v]
+            if v == v0: break
+    return al
+
 ######################################################################
 # The algorithm
 ######################################################################
 class tripod_partition(object):
-    def __init__(self, al, succ, worst_case=True):
-        self.al = al
+    def __init__(self, succ, worst_case=True):
         self.succ = succ
         roots = [2,1,0]  # has to be a triangular face
-        self.t = bfs_forest(al, roots)
+        self.t = bfs_forest(succ2al(succ), roots)  # TODO: avoid conversion
         self.worst_case = worst_case
 
         self.nma = MarkedAncestorStruct(self.t, roots)
-        self.colours = [4]*len(self.al)
+        self.colours = [4] * len(succ)
         for i in range(len(roots)):
             r = roots[i]
             self.set_colour(r, i)
