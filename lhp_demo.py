@@ -77,6 +77,18 @@ def random_point():
         if x**2 + y**2 < 1:
             return (x, y)
 
+""" Convert a triangle-based adjacency representation into an adjacency-list representation """
+def succ2al(succ):
+    al = list()
+    for sd in succ:
+        al.append(list())
+        v0 = next(iter(sd))
+        v = v0
+        while True: # emulating do ... while v != v0
+            al[-1].append(v)
+            v = sd[v]
+            if v == v0: break
+    return al
 
 
 if __name__ == "__main__":
@@ -108,9 +120,8 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # draw graph
-    al = lhp.succ2al(succ) 
-    for v in range(len(al)):
-        for w in al[v]:
+    for v in range(len(succ)):
+        for w in succ[v]:
             plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='gray', lw=0.2)
 
     # draw spanning tree
