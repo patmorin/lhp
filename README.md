@@ -18,7 +18,7 @@ After constructing it, the tripod decomposition has several parts:
 - `tripod_colours`: This is a list of length `len(tripods)` that assigns a colour `tripod_colours[i]` in \{0,1,2,3\} to the tripod `i`.  This is a proper colouring in the sense that, if two tripods receive the same colour then there is no edge between them in *G*.
 - `tripod_tree`: This is a list of length `len(tripods)` that encodes a 3-ary tree whose nodes are tripods.  This tree has the property that `tripods[i][j][:-1]` (a vertical path in `t`) has no vertex adjacent to any tripod in the subtree `tripod_tree[i][j]`.  (Leg *j* of the tripod is separated from all tripods contained in subtree *j*.)
 
-The `tripod_tree` can be used to obtain a width-3 tree-decomposition of the planar graph H_3 obtained from *G* by contracting each tripod.  I can also be used to obtain a width-8 tree-decomposition of the planar graph obtained by contracting each leg of each tripod.
+The `tripod_tree` can be used to obtain a width-3 tree-decomposition of the planar graph H_3 obtained from *G* by contracting each tripod.  It can also be used to obtain a width-8 tree-decomposition of the planar graph obtained by contracting each leg of each tripod.
 
 ## Demo Program
 
