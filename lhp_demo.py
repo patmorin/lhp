@@ -90,6 +90,14 @@ def succ2al(succ):
             if v == v0: break
     return al
 
+""" Convert a standard adjacency list embedding of a triangulation into the triangle-based adjacency representation we need """
+def al2succ(al):
+    succ = list()
+    for neighbours in al:
+        succ.append(dict())
+        for i in range(len(neighbours)):
+            succ[-1][neighbours[i]] = neighbours[(i+1)%len(neighbours)]
+    return succ
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
