@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     for i in range(len(tp.tripod_tree)):
         # print("tripod {}: {}".format(i, tp.tripods[i]))
-        print("{}=>{}".format(i, tp.tripod_tree[i]))
+        print("children({})={}".format(i, tp.tripod_tree[i]))
 
     # draw graph
     for v in range(len(succ)):
@@ -137,50 +137,45 @@ if __name__ == "__main__":
             plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='gray', lw=0.2)
 
     # draw spanning tree
-    for v in range(len(tp.t)):
-        for w in tp.t[v][1:]:
-            plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='black', lw=1)
+    # for v in range(len(tp.t)):
+    #     for w in tp.t[v][1:]:
+    #         plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='black', lw=1)
 
     cmap = ['red', 'green', 'blue', 'darkorange', 'ghostwhite']
     fmap = ['salmon', 'lightgreen', 'lightblue', 'moccasin', 'ghostwhite']
 
-    # Draw tripods
     for i in range(len(tp.tripods)):
         tripod = tp.tripods[i]
         c = tp.tripod_colours[i]
-        a = tripod[0][:-1] + tripod[1][:-1] + tripod[2][:-1]
+        # Draw tripods
         for path in tripod:
             x = [points[v][0] for v in path]
             y = [points[v][1] for v in path]
             plt.plot(x, y, color=cmap[c], lw=2)
         tau = [tripod[i][0] for i in range(3)]
         if i != 0:
+            # draw and label sperner triangle
             x = [points[v][0] for v in tau]
             y = [points[v][1] for v in tau]
-            plt.fill(x, y, facecolor=fmap[c], lw=0)
+            if n <= 100:
+                plt.fill(x, y, facecolor=fmap[c], lw=0)
             x = sum(x)/3
             y = sum(y)/3
-            plt.text(x, y, str(i), horizontalalignment='center', verticalalignment='center')
+            plt.text(x, y, str(i), horizontalalignment='center',
+                     verticalalignment='center', fontsize=min(10,500/n))
 
-            tau2 = [v for v in tau if v in a]
-            print("tau_{} = {}".format(i, tau2))
+            tau2 = sum([tripod[j][:-1][:1] for j in range(3)], [])
             if tau2:
                 tau2.append(tau2[0])
                 x = [points[v][0] for v in tau2]
                 y = [points[v][1] for v in tau2]
                 plt.plot(x, y, color=cmap[c], lw=2)
 
-    print(tp.tripods)
-    print(tp.tripod_map)
     for v in range(n):
         c = cmap[tp.get_colour(v)]
-        plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o')
+        plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o',
+                 markersize=min(8,180/n))
 
     plt.axis('off')
-    # plt.xlim(-0.3, 0.3)
-    # plt.ylim(-0.3, 0.3)
     plt.gca().set_aspect('equal', adjustable='box')
-    # plt.plot([1, 2, 3, 4])
     plt.show()
-
-    # plt.savefig('nice-one.pdf')

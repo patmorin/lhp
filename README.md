@@ -25,3 +25,4 @@ The `tripod_tree` can be used to obtain a width-3 tree-decomposition of the plan
 The program lhp_demo.py produces pictures that look like this:
 
 ![tripod decomposition](figure.png "Tripod decomposition")
+![tripod decomposition](figure2.png "Tripod decomposition")
