@@ -254,7 +254,7 @@ class tripod_partition(object):
             self.tripod_tree.pop()
 
     def tripod_path(self, v):
-        path = list()
+        path = list()     # TODO: make this a list with O(1) time splicing
         while not self.nma.is_marked(v):
             path.append(v)
             v = self.t[v][0]
