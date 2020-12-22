@@ -1,10 +1,54 @@
 #!/usr/bin/python3
+"""Layered H-partitions
+
+An implementation of layered H-partitions for planar graphs, i.e., the Product Structure Theorem for planar graphs.  The algorithm implemented here closely follows the algorithm described in this paper: https://arxiv.org/abs/2004.02530
+"""
 import collections
 
+"""A light wrapper around list that allows for constant-time slices."""
+class list_slice(object):
+    def __init__(self, a, start = None, stop=None):
+        if start == None:
+            start = 0
+        if stop == None:
+            stop = len(a)
+        self.a, self.start, self.stop = a, start, stop
 
-######################################################################
-# Data structures supporting fast algorithm
-######################################################################
+    def __len__(self):
+        return self.stop-self.start
+
+    def __getitem__(self, i):
+        if type(i) == slice:
+            if i.step != 1 and i.step != None:
+                raise IndexError("only steps of 1 are supported")
+            start, stop = i.start, i.stop
+            if start == None:
+                start = 0
+            elif start < 0:
+                start = len(self) + start
+            if stop == None:
+                stop = len(self)
+            elif stop < 0:
+                stop = len(self) + stop
+            return list_slice(self.a, self.start + start, self.start + stop)
+        i = len(self)+i if i < 0 else i
+        return self.a[self.start+i]
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
+    def __repr__(self):
+        return "list_slice([{}])".format(", ".join(repr(x) for x in self))
+
+    def untranslate(self, i):
+        """Convert from an into self.a to an index into self"""
+        return i - self.start
+
+"""Store a set of integers
+
+This data structure stores integers from the set -1,..,n so that integers can be inserted and the predecessor and successor of any integer can be found in constant time.  Any sequence of insertions takes O(n log n) time.
+"""
 class IntegerSet(object):
     def __init__(self, n, population=[]):
         ans = [-1, n]
@@ -42,26 +86,24 @@ class IntegerSet(object):
                 ans[1] = x
 
     def __iter__(self):
-        return IntegerSetIterator(self)
+        x = -1
+        x = self.successor(-1)
+        while x < self.n:
+            yield x
+            x = self.successor(x+1)
 
     def __repr__(self):
         return "IntegerSet({},[{}])".format(self.n,
                                              ",".join(str(x) for x in self))
 
-class IntegerSetIterator(object):
-    def __init__(self, s):
-        self.s = s
-        self.x = -1
+"""Nearest Marked Ancestor data Structure
 
-    def __iter__(self):
-        return self
+Preprocesses a rooted tree so that we can mark any node whose parent is marked and so that we can find the nearest marked ancestor of any node in constant time. Any sequence of mark operations takes O(n log n) time.
 
-    def __next__(self):
-        self.x = self.s.interval(self.x+1)[1]
-        if self.x >= self.s.n:
-            raise StopIteration()
-        return self.x
+The input is a forest with vertex set 0,...,n-1 and list of roots that should be initially marked.  The input format for the forest (tree) is a list of length n, where tree[i][0] is the parent of i (or -1 if i is a root) and tree[i][1:] are the children of i.
 
+This performs an Euler tour of the forest so that each edge e gets mapped to an interval [a(e),b(e)].  If some edge e' is a descendant of e than [a(e'),b(e')] is strictly contained in [a(e),b(e)].
+"""
 class MarkedAncestorStruct(object):
     def __init__(self, tree, roots):
         n = len(tree)
@@ -122,12 +164,10 @@ class MarkedAncestorStruct(object):
                 self.tour.append(u)
         return tour
 
-######################################################################
-# Basic graph algorithm (BFS)
-# Result uses an adjacency list representation of a tree where t[i][0] is
-# the parent of i and t[i][1:] are the children of i.
-# # TODO: rewrite this so that it works directly with succ
-######################################################################
+"""An implementation of breadth-first-search
+
+This implementation takes a list of roots that form the depth-0 nodes of the breadth-first-search forest.  The output format is compatible with the MarkedAncestorStruct structure.
+"""
 def bfs_forest(succ, roots):
     t = [list() for _ in succ]
     for v in roots:
@@ -144,44 +184,56 @@ def bfs_forest(succ, roots):
                 t[v].append(w)  # makes w a child of v
     return t
 
+
+# Unused, more documentation about the the forest representation we use
 def parent(t, v):
     return t[v][0]
 
+# Unused, more documentation about the the forest representation we use
 def children(t, v):
     return t[v][1:]
 
-######################################################################
-# A few helper functions
-######################################################################
-""" Get the smallest integer c>=0 that is not in colours """
+# Taken from here: https://stackoverflow.com/questions/652276/is-it-possible-to-create-anonymous-objects-in-python
+class AnonObj(object):
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+"""Get the smallest integer c>=0 that is not in colours"""
 def free_colour(colours):
     return min(set(range(len(colours)+1)).difference(colours))
 
-""" Split the sequence a into two sequences, the shortest prefix containing x and the longest suffix containing x"""
-def split_at(a, x):
-    i = a.index(x)
-    return a[:i+1], a[i:]
+"""The tripod partition class
 
-######################################################################
-# The algorithm
-######################################################################
+This is the object that the algorithm constructs from a planar triangulation.  The input is a planar triangulation with vertex set 0,...,n-1 [where n := len(succ)].  The argument succ is a list of dictionaries so that succ[u][v] is the third vertex w of the triangle uvw that lies to the left of the directed edge uv.  The structure obtained from this is described in the README
+"""
 class tripod_partition(object):
     def __init__(self, succ, worst_case=True, roots=[2,1,0]):
         self.succ = succ
-        self.t = bfs_forest(succ, roots)  # TODO: avoid conversion
         self.worst_case = worst_case
 
+        self.t = bfs_forest(succ, roots)
         self.nma = MarkedAncestorStruct(self.t, roots)
-        self.tripod_map = [0, 0, 0] + [None] * (len(succ)-3)
+
+        self.tripod_map = [None] * len(succ)
+        self.index_map = [None] * len(succ)  # allows constant time path splits
         self.colours = [4] * len(succ)
         for i in range(len(roots)):
+            self.tripod_map[roots[i]] = (0, i, 0)
+            self.index_map[roots[i]] = 0
             self.set_colour(roots[i], i)
 
         paths = [[x] for x in roots]
         self.tripods = [paths]
         self.tripod_colours = [3]
+        paths = [list_slice(p) for p in paths]
         self.tripod_tree = [[1]]
+
         self.compute(paths)
+
+        # these are used only during the computation
+        del self.index_map
+        self.nma = AnonObj(nearest_marked_ancestor = lambda x: x)
 
     """ Compute the partition into tripods """
     def compute(self, paths):
@@ -226,42 +278,53 @@ class tripod_partition(object):
         self.tripod_colours.append(c)
 
         # map and colour the vertices in the tripod
-        useless = True
-        for path in tripod:
-            for v in path[:-1]:
-                useless = False
-                self.tripod_map[v] = ti
+        for i in range(3):
+            path = tripod[i]
+            for j in range(len(path)-1):
+                v = path[j]
+                self.tripod_map[v] = (ti, i, j)
                 self.set_colour(v, c)
 
-        # recurse on three subproblems
-        p = [split_at(paths[i], tripod[i][-1]) for i in range(3)]
+        p = list()
+        for i in range(3):
+            # split paths[i] into two paths p[i][0] and p[i][1]
+            v = tripod[i][-1]  # tripod leg i attaches to paths[i] at v
+            j = self.index_map[v]  # tell us where v is in paths[i].a
+            jprime = paths[i].untranslate(j)
+            # paths[i][0] is prefix of paths[i] up to and including v
+            # paths[i][1] is suffix of paths[i] beginning at v
+            p.append((paths[i][:jprime+1], paths[i][jprime:]))
         q = [None]*3
         children = [None]*3
         self.tripod_tree.append(children)
         for i in range(3):
             q[0] = p[i][1]
             q[1] = p[(i+1)%3][0]
-            q[2] = tripod[(i+1)%3][-2::-1] + tripod[i][:-1]
-            x = len(self.tripods)
+            q[2] = list_slice(tripod[(i+1)%3][-2::-1] + tripod[i][:-1])
+            for j in range(len(q[2])):
+                v = q[2][j]
+                self.index_map[v] = j
+            m = len(self.tripods)
             self.compute(q)
-            if x < len(self.tripods):
-                children[i] = x
-                useless = False
-        if useless:
-            # useless tripod has an empty tripod and no non-empty children
+            if m < len(self.tripods):
+                children[i] = m
+        # if the tripod is empty and has no children then discard this node
+        # not strictly necessary, but saves a lot of clutter
+        if not sum([children[i] or len(tripod[i]) > 1 for i in range(3)]):
             self.tripods.pop()
             self.tripod_colours.pop()
             self.tripod_tree.pop()
 
     def tripod_path(self, v):
-        path = list()     # TODO: make this a list with O(1) time splicing
+        path = list()
         while not self.nma.is_marked(v):
             path.append(v)
-            v = self.t[v][0]
+            v = self.t[v][0]  # v := parent(v)
         path.append(v)
         return path
 
     def sperner_triangle(self, e):
+        """Find the trichromatic triangle starting from the portal e"""
         c0 = self.get_colour(e[0])
         c1 = self.get_colour(e[1])
         assert(c0 != c1)
@@ -276,6 +339,7 @@ class tripod_partition(object):
                 e = v, e[1]
 
     def sperner_triangle_parallel(self, e):
+        """Find the trichromatic triangle searching from 3 portals"""
         c0 = [None]*len(e)
         c1 = [None]*len(e)
         for i in range(len(e)):

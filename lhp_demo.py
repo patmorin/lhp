@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sys
 import random
 import subprocess
@@ -19,6 +20,12 @@ def make_triangulation(n):
     # random.seed(0)
     points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
              + [random_point() for _ in range(n-3)]
+
+    points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
+             + [(-1 + i/(n-3), -1 + i/(n-3)) for i in range(n-3)]
+
+    # points = [(-1,-1), (0,1), (1,-1)] + [(1/2 + i/n, 0) for i in range(n-3)]
+
 
     input = "2\n{}\n".format(n)
     input += "\n".join(["{} {}".format(p[0], p[1]) for p in points])
