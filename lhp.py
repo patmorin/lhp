@@ -4,6 +4,8 @@
 An implementation of layered H-partitions for planar graphs, i.e., the Product Structure Theorem for planar graphs.  The algorithm implemented here closely follows the algorithm described in this paper: https://arxiv.org/abs/2004.02530
 """
 import collections
+import random
+import itertools
 
 """A light wrapper around list that allows for constant-time slices."""
 class list_slice(object):
@@ -12,6 +14,7 @@ class list_slice(object):
             start = 0
         if stop == None:
             stop = len(a)
+        assert(start <= stop)
         self.a, self.start, self.stop = a, start, stop
 
     def __len__(self):
@@ -30,6 +33,8 @@ class list_slice(object):
                 stop = len(self)
             elif stop < 0:
                 stop = len(self) + stop
+            assert(start >= 0 and start < len(self))
+            assert(stop >= start and stop <= len(self))
             return list_slice(self.a, self.start + start, self.start + stop)
         i = len(self)+i if i < 0 else i
         return self.a[self.start+i]
@@ -219,14 +224,14 @@ class tripod_partition(object):
         self.index_map = [None] * len(succ)  # allows constant time path splits
         self.colours = [4] * len(succ)
         for i in range(len(roots)):
-            self.tripod_map[roots[i]] = (0, i, 0)
-            self.index_map[roots[i]] = 0
-            self.set_colour(roots[i], i)
+            r = roots[i]
+            self.tripod_map[r] = (0, i, 0)
+            self.index_map[r] = 0
+            self.set_colour(r, i)
 
-        paths = [[x] for x in roots]
-        self.tripods = [paths]
-        self.tripod_colours = [3]
-        paths = [list_slice(p) for p in paths]
+        paths = [list_slice([x]) for x in roots]
+        self.tripods = [[[x, -1] for x in roots]]
+        self.tripod_colours = [0]
         self.tripod_tree = [[1]]
 
         self.compute(paths)
@@ -235,85 +240,162 @@ class tripod_partition(object):
         del self.index_map
         self.nma = AnonObj(nearest_marked_ancestor = lambda x: x)
 
+        self.compute_h3()
+
+        # remove this if you don't want the performance hit
+        self.verify_results()
+
     """ Compute the partition into tripods """
     def compute(self, paths):
-        # paths[0], paths[1] are non-empty, paths[2] may be empty
-        if not paths[2]:
-            cprime = free_colour([self.colours[paths[0][0]],
+        # To avoid recursion we implement our own recursion stack.
+        # Each stack frame is a list of up to 3 subproblems. Each subproblem
+        # contains the index of the parent tripod, the index of the subproblem
+        # within this tripod, and the three paths that form a cycle containing
+        # the subproblem
+        stack = [[(0, 0, paths)]]
+        nextsubproblem = stack[0][0]
+        while nextsubproblem:
+            (parent, r, paths) = nextsubproblem
+
+            # paths[2] is two entire legs of a tripod
+            for i in range(len(paths[2])):
+                self.index_map[paths[2][i]] = i
+
+            # paths[0] and paths[1] are always non-empty, but not paths[2]
+            if not paths[2]:
+                cprime = free_colour([self.colours[paths[0][0]],
                                   self.colours[paths[1][0]]])
-            if len(paths[1]) > 1:
-                c = self.colours[paths[1][-1]]
-                self.colours[paths[1][-1]] = cprime
-                self.compute([paths[0], paths[1][:-1], paths[1][-1:]])
-                self.colours[paths[1][-1]] = c
-            elif len(paths[0]) > 1:
-                c = self.colours[paths[0][-1]]
-                self.colours[paths[0][-1]] = cprime
-                self.compute([paths[0][:-1], paths[0][-1:], paths[1]])
-                self.colours[paths[0][-1]] = c
-            return
-        # Now, paths[i] is non-empty for each i in {0,1,2}
+                if len(paths[1]) > 1:
+                    paths = [paths[0], paths[1][:-1], paths[1][-1:]]
+                else: # len(paths[0]) > 1:
+                    paths = [paths[0][1:], paths[1], paths[0][:1]]
+                v = paths[2][0]
+                self.colours[v] = cprime
+                stack[-1][-1] = (parent, r, paths)
 
-        if self.worst_case:
-            # this code guarantees O(n log n) running time
-            e = [ (paths[i][-1], paths[(i+1)%3][0]) for i in range(3)]
-            tau = self.sperner_triangle_parallel(e)
+            if self.worst_case:
+                # this code guarantees O(n log n) running time
+                e = [ (paths[i][-1], paths[(i+1)%3][0]) for i in range(3)]
+                tau = self.sperner_triangle_parallel(e)
 
-            # rotate so that tau[i] leads to paths[i]
-            tcols = [self.get_colour(tau[i]) for i in range(3)]
-            shift = tcols.index(self.colours[paths[0][0]])
-            tau = [tau[(shift+i)%3] for i in range(3)]
-        else:
-            # this code is probably faster in most cases
-            e = (paths[0][-1], paths[1][0])
-            tau = self.sperner_triangle(e)
+                # rotate so that tau[i] leads to paths[i]
+                tcols = [self.get_colour(tau[i]) for i in range(3)]
+                shift = tcols.index(self.colours[paths[0][0]])
+                tau = [tau[(shift+i)%3] for i in range(3)]
+            else:
+                # this code is probably faster in most cases
+                e = (paths[0][-1], paths[1][0])
+                tau = self.sperner_triangle(e)
 
-        # compute the legs of the tripod
-        tripod = [self.tripod_path(tau[i]) for i in range(3)]
-        ti = len(self.tripods)
-        self.tripods.append(tripod)
+            # compute the legs of the tripod
+            tripod = [self.tripod_path(tau[i]) for i in range(3)]
 
-        # colour the tripod with a colour not used by tau
-        c = free_colour([self.get_colour(tau[i]) for i in range(3)])
-        self.tripod_colours.append(c)
+            # add this tripod to the list of tripods
+            ti = len(self.tripods)
+            self.tripods.append(tripod)
+            self.tripod_tree.append([None]*3)
+            self.tripod_tree[parent][r] = ti
 
-        # map and colour the vertices in the tripod
-        for i in range(3):
-            path = tripod[i]
-            for j in range(len(path)-1):
-                v = path[j]
-                self.tripod_map[v] = (ti, i, j)
-                self.set_colour(v, c)
+            # colour the tripod with a colour not used by tau
+            c2 = free_colour([self.get_colour(tau[i]) for i in range(3)])
+            self.tripod_colours.append(c2)
 
-        p = list()
-        for i in range(3):
-            # split paths[i] into two paths p[i][0] and p[i][1]
-            v = tripod[i][-1]  # tripod leg i attaches to paths[i] at v
-            j = self.index_map[v]  # tell us where v is in paths[i].a
-            jprime = paths[i].untranslate(j)
-            # paths[i][0] is prefix of paths[i] up to and including v
-            # paths[i][1] is suffix of paths[i] beginning at v
-            p.append((paths[i][:jprime+1], paths[i][jprime:]))
-        q = [None]*3
-        children = [None]*3
-        self.tripod_tree.append(children)
-        for i in range(3):
-            q[0] = p[i][1]
-            q[1] = p[(i+1)%3][0]
-            q[2] = list_slice(tripod[(i+1)%3][-2::-1] + tripod[i][:-1])
-            for j in range(len(q[2])):
-                v = q[2][j]
-                self.index_map[v] = j
-            m = len(self.tripods)
-            self.compute(q)
-            if m < len(self.tripods):
-                children[i] = m
-        # if the tripod is empty and has no children then discard this node
-        # not strictly necessary, but saves a lot of clutter
-        if not sum([children[i] or len(tripod[i]) > 1 for i in range(3)]):
-            self.tripods.pop()
-            self.tripod_colours.pop()
-            self.tripod_tree.pop()
+            # map and colour the vertices in the tripod
+            for i in range(3):
+                path = tripod[i]
+                for j in range(len(path)-1):
+                    v = path[j]
+                    self.tripod_map[v] = (ti, i, j)
+                    self.set_colour(v, c2)
+
+            # Create the 6 paths that appear on the boundaries of subproblems.
+            p = list()
+            for i in range(3):
+                v = tripod[i][-1]  # tripod leg i attaches to paths[i] at v
+                j = self.index_map[v]  # tell us where v is in paths[i].a
+                jprime = paths[i].untranslate(j)
+                assert(paths[i][jprime] == v)
+                # p[i][0] is the prefix of paths[i] up to and including v
+                # p[i][1] is the suffix of paths[i] beginning at v
+                p.append((paths[i][:jprime+1], paths[i][jprime:]))
+
+            # Create the up to three subproblems generated by this tripod.
+            newframe = list()
+            for i in range(3):
+                q = [None]*3
+                q[0] = p[i][1]
+                q[1] = p[(i+1)%3][0]
+                q[2] = list_slice(tripod[(i+1)%3][-2::-1] + tripod[i][:-1])
+                if sum([len(q[i]) for i in range(3)]) >= 3:
+                    newframe.append((ti, i, q))
+            if newframe:
+                # The next iteration is a "recursive" call
+                stack.append(newframe)
+                nextsubproblem = newframe[-1]
+            else:
+                # We are now returning from one or more "recursive" calls
+                nextsubproblem = None
+                while stack and not nextsubproblem:
+                    frame = stack[-1]
+                    parent, r, paths = frame.pop()
+                    if len(paths[2]) == 1:
+                        v = paths[2][0]
+                        self.colours[v] = self.tripod_colours[self.tripod_map[v][0]]
+                    if not frame:
+                        stack.pop()
+                    else:
+                        nextsubproblem = frame[-1]
+            # if the tripod is empty and has no children then discard this node
+            # not strictly necessary, but saves a lot of clutter
+            # if not sum([children[i] or len(tripod[i]) > 1 for i in range(3)]):
+            #     self.tripods.pop()
+            #     self.tripod_colours.pop()
+            #     self.tripod_tree.pop()
+            # break
+
+
+    def compute_h3(self):
+        """Compute the partial 3-tree obtained from contracting tripods"""
+        parents = [list() for i in range(len(self.tripods))]
+        for u in range(len(self.succ)):
+            iu, ju, ku = self.tripod_map[u]
+            for v in self.succ[u]:
+                iv, jv, kv = self.tripod_map[v]
+                if iu < iv:
+                    # Tripod iu is a parent of tripod iv
+                    if iu not in parents[iv]:
+                        parents[iv].append(iu)
+                        assert(len(parents[iv]) <= 3)
+        self.tripod_colours[0] = 0
+        for t in range(1, len(self.tripods)):
+            c = free_colour([self.tripod_colours[p] for p in parents[t]])
+            self.tripod_colours[t] = c
+        for u in range(len(self.succ)):
+            self.colours[u] = self.tripod_colours[self.tripod_map[u][0]]
+        self.h3 = parents
+
+
+    def verify_results(self):
+        # First make sure the tripods form a partition
+        vertices = set()
+        for tripod in self.tripods:
+            for path in tripod:
+                for i in range(len(path)-1):
+                    v = path[i]
+                    assert(v not in vertices)
+                    vertices.add(v)
+
+        roots = sum(self.tripods[0], [])
+        for v in range(len(self.succ)):
+            i, j, k = self.tripod_map[v]
+            assert(self.tripods[i][j][k] == v)
+            assert(v in roots or self.get_colour(v) == self.tripod_colours[i])
+
+        for u in range(len(self.succ)):
+            iu, ju, ku = self.tripod_map[u]
+            for v in self.succ[u]:
+                iv, jv, kv = self.tripod_map[v]
+                assert(iu == iv or self.tripod_colours[iu] != self.tripod_colours[iv])
 
     def tripod_path(self, v):
         path = list()

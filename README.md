@@ -2,7 +2,19 @@
 
 An implementation of layered H-partitions, a.k.a, the Product Structure Theorem for planar graphs.  This implements the algorithm described in [arXiv:2004.02530](https://arxiv.org/abs/2004.02530).
 
-## The tripod_decomposition class
+## lhp_demo.py
+
+    ./lhp_demo.py -h
+    Computes a tripod decomposition of a Delaunay triangulation
+    Usage: lhp_demo.py [-c] [-r] [-w] [-b] [<n>]
+      -c use collinear points
+      -r use random points (default)
+      -w use O(n log n) time algorithm (default)
+      -b use O(n^2) time algorithm (usually faster)
+      <n> the number of points to use
+
+
+## The `tripod_decomposition` class
 
 The useful thing here is the `tripod_decomposition` class, whose constructor requires an embedding of a planar triangulation G with vertex set \{0,..,*n*-1\} and with outer face (2,1,0).
 
