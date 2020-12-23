@@ -4,6 +4,8 @@ An implementation of layered H-partitions, a.k.a, the Product Structure Theorem 
 
 ## lhp_demo.py
 
+Unfortunately, this demo requires `qhull` for generating random Delaunay triangulations
+
     ./lhp_demo.py -h
     Computes a tripod decomposition of a Delaunay triangulation
     Usage: lhp_demo.py [-c] [-r] [-w] [-b] [<n>]
@@ -13,6 +15,7 @@ An implementation of layered H-partitions, a.k.a, the Product Structure Theorem 
       -b use O(n^2) time algorithm (usually faster)
       <n> the number of points to use
 
+If n < 500 then this program will show the result in a matplotlib window.
 
 ## The `tripod_decomposition` class
 
