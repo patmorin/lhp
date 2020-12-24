@@ -16,18 +16,37 @@ def make_triangulation(n, data_type):
     # points = [s.split() for s in rbox.stdout.splitlines()]
     # points = [(float(s[0]),float(s[1])) for s in points[2:]]
 
-    print("Generating random points")
-    random.seed(1)
 
+    print("Generating points")
     if data_type == 0:
         # Use a random point set
         points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
                  + [random_point() for _ in range(n-3)]
-    else:
+    elif data_type == 1:
         # Use a set of n-3 collinear points
         points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
                  + [(-1 + i/(n-3), -1 + i/(n-3)) for i in range(n-3)]
+    else:
+        points = open("egg.txt").read().splitlines()
+        points = [line.split(" ") for line in points]
+        points = [(float(p[0]), float(p[1])) for p in points]
+        outer = points[:3]
+        mirror = outer[1][0]
+        other = points[3:]
+        other += [(2*mirror-p[0], p[1]) for p in other]
+        other = set(other)
+        eps = 1e-4
+        other = [(p[0]+(random.random()-1/2)*eps, p[1]+(random.random()-1/2)*eps) for p in other]
+        for p in outer:
+            if p in other:
+                other.remove(p)
+        points = outer + list(other)
+        print(points[:20])
 
+    # points = [p for p in set(points)]
+    n = len(points)
+
+    # return [], points
 
     input = "2\n{}\n".format(n)
     input += "\n".join(["{} {}".format(p[0], p[1]) for p in points])
@@ -43,22 +62,20 @@ def make_triangulation(n, data_type):
         t = tuple([int(s) for s in line.split()])
         faces.append(t)
 
-    al = [list() for _ in range(n)]
-
     print("Building successor map")
-    succ = build_succ(faces)
+    succ = build_succ(faces, n)
     # needed because qhull doesn't consistently orient the outer face
     if not succ:
         print("Trying again")
         faces[0] = (2,1,0)
-        succ = build_succ(faces)
+        succ = build_succ(faces, n)
     if not succ:
         print("ERROR: Unable to build successors")
 
     return succ, points
 
 
-def build_succ(faces):
+def build_succ(faces, n):
     succ = [dict() for _ in range(n)]
     for t in faces:
         for i in range(3):
@@ -113,10 +130,12 @@ if __name__ == "__main__":
             print("  -b use O(n^2) time algorithm (usually faster)")
             print("  <n> the number of points to use")
             sys.exit(0)
-        elif arg == '-c':
-            data_type = 1   # collinear
         elif arg == '-r':
             data_type = 0   # random
+        elif arg == '-c':
+            data_type = 1   # collinear
+        elif arg == '-g':
+            data_type = 2   # egg
         elif arg == '-w':
             worst_case = True
         elif arg == '-b':
@@ -125,9 +144,13 @@ if __name__ == "__main__":
             n = int(arg)
 
 
-    s = ["random", "collinear"][data_type]
+    s = ["random", "collinear", "special"][data_type]
     print("Generating {} point set of size {}".format(s, n))
     succ, points = make_triangulation(n, data_type)
+    n = len(succ)
+    m = sum([len(x) for x in succ]) // 2
+    print("n = ", n, " m = ", m)
+    assert(m == 3*n - 6)
 
     s = ["O(n^2)", "O(n log n)"][worst_case]
     print("Computing tripod decomposition using {} algorithm".format(s))
@@ -141,18 +164,18 @@ if __name__ == "__main__":
         print("Not displaying results since n = {} > 500".format(n))
         sys.exit(0)
 
-    # draw graph
+    # Draw graph
     for v in range(len(succ)):
         for w in succ[v]:
             plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='gray', lw=0.2)
 
-    # draw spanning tree
-    # for v in range(len(tp.t)):
-    #     for w in tp.t[v][1:]:
-    #         plt.plot([points[v][0], points[w][0]], [points[v][1], points[w][1]], color='black', lw=1)
+    for v in range(n):
+        plt.plot(points[v][0], points[v][1], color="red", lw=1, marker='o',
+                 markersize=min(8,180/n))
 
-    cmap = ['red', 'green', 'blue', 'darkorange', 'ghostwhite']
-    fmap = ['salmon', 'lightgreen', 'lightblue', 'moccasin', 'ghostwhite']
+
+    cmap = ['red', 'darkgreen', 'blue', 'orange', 'ghostwhite']
+    fmap = ['mistyrose', 'lightgreen', 'lightblue', 'moccasin', 'ghostwhite']
 
     # Draw tripods
     for i in range(1, len(tp.tripods)):
@@ -171,8 +194,9 @@ if __name__ == "__main__":
             plt.fill(x, y, facecolor=fmap[c], lw=0)
         x = sum(x)/3
         y = sum(y)/3
-        plt.text(x, y, str(i), horizontalalignment='center',
-                 verticalalignment='center', fontsize=min(10,500/n))
+        if n < 250:
+            plt.text(x, y, str(i), horizontalalignment='center',
+                     verticalalignment='center', fontsize=min(10,500/n))
 
         tau2 = sum([tripod[j][:-1][:1] for j in range(3)], [])
         if tau2:
@@ -184,7 +208,7 @@ if __name__ == "__main__":
     for v in range(n):
         c = cmap[tp.get_colour(v)]
         plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o',
-                 markersize=min(8,180/n))
+                 markersize=min(8,400/n))
 
     plt.axis('off')
     plt.gca().set_aspect('equal', adjustable='box')

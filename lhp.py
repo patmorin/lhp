@@ -214,7 +214,17 @@ This is the object that the algorithm constructs from a planar triangulation.  T
 """
 class tripod_partition(object):
     def __init__(self, succ, worst_case=True, roots=[2,1,0]):
+        n = len(succ)
+        td = sum([len(a) for a in succ])
+        m = td // 2
+        f = td // 3
+        assert(m == 3*n -6)
+        assert(f == 2*n - 4)  # redundant, of course
+
         self.succ = succ
+
+        # TODO: A lot of these members can become local variables
+        # in or parameters of compute()
         self.worst_case = worst_case
 
         self.t = bfs_forest(succ, roots)
@@ -236,13 +246,13 @@ class tripod_partition(object):
 
         self.compute(paths)
 
-        # these are used only during the computation
+        # These are used only during the computation
         del self.index_map
         self.nma = AnonObj(nearest_marked_ancestor = lambda x: x)
 
+        # Remove this if you don't want the performance hit
+        # It adds about 10% to the runtime
         self.compute_h3()
-
-        # remove this if you don't want the performance hit
         self.verify_results()
 
     """ Compute the partition into tripods """
