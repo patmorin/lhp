@@ -273,6 +273,7 @@ class tripod_partition(object):
 
             # paths[0] and paths[1] are always non-empty, but not paths[2]
             if not paths[2]:
+                # TODO: Handle this case directly, without recolouring
                 cprime = free_colour([self.colours[paths[0][0]],
                                   self.colours[paths[1][0]]])
                 if len(paths[1]) > 1:
