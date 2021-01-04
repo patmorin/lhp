@@ -16,7 +16,7 @@ If you have an embedding of G represented as a standard adjacency list you can u
 
 After constructing it, the tripod decomposition has several parts:
 
-- `t`: This is a BFS tree rooted at [0, 1, 2].
+- `t`: This is a BFS tree rooted at `roots`.  This is represented as a array of length *n*. `t[i]` is the list of nodes adjacent to `i` beginning with the parent node, so `t[i][0]` is the parent of `i` in the BFS tree.  The parent of each outer face node is `-1`, so `t[j][0] = -1` for each j in `outer_face`.
 - `tripods`: This is a list of *tripods*.  Each tripod is a list of 3 vertical paths in the BFS tree T.  The set \{tripods[i][j][:-1] : 0<= i < len(tripods), 0<= j<3 \}  is a partition of the vertices of G.  **Note:** Pay attention to the `[:-1]`; each of these three lists contains one extra vertex that is technically not in the tripod.
 - tripod_map: This is a list of length *n* that maps each *v* vertex of *G* onto a triple `(ti,l,j)` where `ti` is the tripod that contains *v*, `l` is the leg that contains *v* and `j` is the location of *v* in this leg.  So, if `(ti,l,j) = tripod_map[v]` then `tripods[ti][l][j]=v`.
 - `tripod_colours`: This is a list of length `len(tripods)` that assigns a colour `tripod_colours[i]` in \{0,1,2,3\} to the tripod `i`.  This is a proper colouring in the sense that, if two tripods receive the same colour then there is no edge between them in *G*.
@@ -55,7 +55,7 @@ Unfortunately, this demo requires `scipy.spatial` (which uses `qhull`) for gener
       -b use O(n^2) time algorithm (usually faster)
       <n> the number of points to use
 
-If n < 500 then this program will show the result in a matplotlib window.
+If n &lt; 500 then this program will show the result in a matplotlib window.
 
 
 ## Demo Program
