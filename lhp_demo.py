@@ -8,7 +8,6 @@ import scipy.spatial
 
 import lhp
 
-
 def triangulate(points):
     n = len(points)
     dt = scipy.spatial.Delaunay(points)
@@ -23,10 +22,10 @@ def triangulate(points):
     # don't forget the outer face
     of = list(set(itertools.chain.from_iterable(dt.convex_hull)))
     if of[1] in succ[of[0]]:
-        outer_face = extreme_vertices[::-1]
+        of = of[::-1]
     for i in range(3):
         succ[of[i]][of[(i+1)%3]] = of[(i+2)%3]
-    return succ
+    return succ, of
 
 
 
@@ -47,10 +46,11 @@ def make_triangulation(n, data_type):
         raise Error("Invalid argument for data_type")
 
     n = len(points)
+    random.shuffle(points)
 
     print("Computing Delaunay triangulation")
-    succ = triangulate(points)
-    return succ, points
+    succ, outer_face = triangulate(points)
+    return succ, points, outer_face
 
 """ Generate a random point in the unit circle """
 def random_point():
@@ -90,19 +90,17 @@ if __name__ == "__main__":
     for arg in sys.argv[1:]:
         if arg == '-h':
             print("Computes a tripod decomposition of a Delaunay triangulation")
-            print("Usage: {} [-c] [-r] [-w] [-b] [<n>]".format(sys.argv[0]))
+            print("Usage: {} [-h] [-c] [-r] [-w] [-b] [<n>]".format(sys.argv[0]))
+            print("  -h show this message")
             print("  -c use collinear points")
             print("  -r use random points (default)")
             print("  -w use O(n log n) time algorithm (default)")
             print("  -b use O(n^2) time algorithm (usually faster)")
-            print("  <n> the number of points to use")
-            sys.exit(0)
+            print("  <n> the number of points to use (default = 10)")
         elif arg == '-r':
             data_type = 0   # random
         elif arg == '-c':
             data_type = 1   # collinear
-        elif arg == '-g':
-            data_type = 2   # egg
         elif arg == '-w':
             worst_case = True
         elif arg == '-b':
@@ -112,7 +110,7 @@ if __name__ == "__main__":
 
     s = ["random", "collinear", "special"][data_type]
     print("Generating {} point set of size {}".format(s, n))
-    succ, points = make_triangulation(n, data_type)
+    succ, points, outer_face = make_triangulation(n, data_type)
     n = len(succ)
     m = sum([len(x) for x in succ]) // 2
     print("n = ", n, " m = ", m)
@@ -121,7 +119,7 @@ if __name__ == "__main__":
     s = ["O(n^2)", "O(n log n)"][worst_case]
     print("Computing tripod decomposition using {} algorithm".format(s))
     start = time.time_ns()
-    tp = lhp.tripod_partition(succ, worst_case)
+    tp = lhp.tripod_partition(succ, outer_face, worst_case)
     stop = time.time_ns()
     print("done")
     print("Elapsed time: {}s".format((stop-start)*1e-9))

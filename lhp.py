@@ -3,9 +3,10 @@
 
 An implementation of layered H-partitions for planar graphs, i.e., the Product Structure Theorem for planar graphs.  The algorithm implemented here closely follows the algorithm described in this paper: https://arxiv.org/abs/2004.02530
 """
+import sys
 import collections
-import random
 import itertools
+import random
 
 """A light wrapper around list that allows for constant-time slices."""
 class list_slice(object):
@@ -213,7 +214,7 @@ def free_colour(colours):
 This is the object that the algorithm constructs from a planar triangulation.  The input is a planar triangulation with vertex set 0,...,n-1 [where n := len(succ)].  The argument succ is a list of dictionaries so that succ[u][v] is the third vertex w of the triangle uvw that lies to the left of the directed edge uv.  The structure obtained from this is described in the README
 """
 class tripod_partition(object):
-    def __init__(self, succ, worst_case=True, roots=[2,1,0]):
+    def __init__(self, succ, outer_face, worst_case):
         n = len(succ)
         td = sum([len(a) for a in succ])
         m = td // 2
@@ -223,10 +224,7 @@ class tripod_partition(object):
 
         self.succ = succ
 
-        # TODO: A lot of these members can become local variables
-        # in or parameters of compute()
-        self.worst_case = worst_case
-
+        roots = outer_face[::-1]
         self.t = bfs_forest(succ, roots)
         self.nma = MarkedAncestorStruct(self.t, roots)
 
@@ -244,7 +242,7 @@ class tripod_partition(object):
         self.tripod_colours = [0]
         self.tripod_tree = [[1]]
 
-        self.compute(paths)
+        self.compute(paths, worst_case)
 
         # These are used only during the computation
         del self.index_map
@@ -256,7 +254,7 @@ class tripod_partition(object):
         self.verify_results()
 
     """ Compute the partition into tripods """
-    def compute(self, paths):
+    def compute(self, paths, worst_case):
         # To avoid recursion we implement our own recursion stack.
         # Each stack frame is a list of up to 3 subproblems. Each subproblem
         # contains the index of the parent tripod, the index of the subproblem
@@ -284,7 +282,7 @@ class tripod_partition(object):
                 self.colours[v] = cprime
                 stack[-1][-1] = (parent, r, paths)
 
-            if self.worst_case:
+            if worst_case:
                 # this code guarantees O(n log n) running time
                 e = [ (paths[i][-1], paths[(i+1)%3][0]) for i in range(3)]
                 tau = self.sperner_triangle_parallel(e)
@@ -339,6 +337,7 @@ class tripod_partition(object):
                 q[2] = list_slice(tripod[(i+1)%3][-2::-1] + tripod[i][:-1])
                 if sum([len(q[i]) for i in range(3)]) >= 3:
                     newframe.append((ti, i, q))
+
             if newframe:
                 # The next iteration is a "recursive" call
                 stack.append(newframe)
@@ -353,6 +352,7 @@ class tripod_partition(object):
                         v = paths[2][0]
                         self.colours[v] = self.tripod_colours[self.tripod_map[v][0]]
                     if not frame:
+
                         stack.pop()
                     else:
                         nextsubproblem = frame[-1]
@@ -458,3 +458,50 @@ class tripod_partition(object):
     def get_colour(self, v):
         a = self.nma.nearest_marked_ancestor(v)
         return self.colours[a]
+
+
+
+"""Standalone program code
+
+This can also be used as a standalone program that reads a triangulation from stdin and outputs a list of tripods to stdout.
+
+The input represents a graph with vertex set 0,..,.n-1.
+- Line 0 of the input is f = 2*n - 4
+- Each of lines 1,...,f in the input is a triangular face
+The vertices of each triangular face must be listed in counterclockwise order
+
+The output represents the closed tripods in a tripod partition.
+- Line 0 is the number k of tripods
+- Lines 3i-2, 3i-1, 3i are the legs of tripod i (for each i in {1,...,k})
+Each leg of the tripod begins with a vertex of the Sperner triangle and ends
+at a vertex in one of the three parent tripods.
+"""
+if __name__ == "__main__":
+    f = int(sys.stdin.readline())
+    n = (f+5) // 2
+    succ = [dict() for _ in range(n)]
+    for _ in range(f):
+        line = sys.stdin.readline()
+        t = [int(x) for x in line.split()]
+        for i in range(3):
+            succ[t[i]][t[(i+1)%3]] = t[(i+2)%3]
+
+    # This hack makes it possible to use a command line like
+    # rbox y <n-3> D2 | qhull d Qt i | python3 lhp.py
+    if f == 2*n-5:
+        f += 1
+        sys.stderr.write("Warning: One face too few, assuming outerface [0,1,2]\n")
+        t = [0, 1, 2]
+        if 1 in succ[0]:
+            t = t[::-1]
+        for i in range(3):
+            succ[t[i]][t[(i+1)%3]] = t[(i+2)%3]
+
+    print(n, f)
+    outer_face = [0, next(iter(succ[0])), None]
+    outer_face[2] = succ[outer_face[0]][outer_face[1]]
+    tp = tripod_partition(succ, outer_face, True)
+    print(len(tp.tripods))
+    for t in tp.tripods:
+        for leg in t:
+            print(" ".join([str(v) for v in leg]))
