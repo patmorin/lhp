@@ -1,25 +1,42 @@
 #!/usr/bin/python3
 import sys
-import random
-import subprocess
-import matplotlib.pyplot as plt
 import time
+import random
+import itertools
+import matplotlib.pyplot as plt
+import scipy.spatial
 
 import lhp
+
+
+def triangulate(points):
+    n = len(points)
+    dt = scipy.spatial.Delaunay(points)
+    assert(dt.npoints == n)
+    assert(len(dt.convex_hull) == 3)
+    assert(dt.nsimplex == 2*n - 5)
+    succ = [dict() for _ in range(n)]
+    for t in dt.simplices:
+        for i in range(3):
+            succ[t[i]][t[(i+1)%3]] = t[(i+2)%3]
+
+    # don't forget the outer face
+    of = list(set(itertools.chain.from_iterable(dt.convex_hull)))
+    if of[1] in succ[of[0]]:
+        outer_face = extreme_vertices[::-1]
+    for i in range(3):
+        succ[of[i]][of[(i+1)%3]] = of[(i+2)%3]
+    return succ
+
+
 
 ######################################################################
 # Boring routines to build a "random" triangulation
 ######################################################################
 def make_triangulation(n, data_type):
-    # print("Calling rbox")
-    # rbox = subprocess.run(["rbox", "D2", "y", str(n-3)], capture_output=True)
-    # points = [s.split() for s in rbox.stdout.splitlines()]
-    # points = [(float(s[0]),float(s[1])) for s in points[2:]]
-
-
     print("Generating points")
     if data_type == 0:
-        # Use a random point set
+        # Use a set of n-3 random points
         points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
                  + [random_point() for _ in range(n-3)]
     elif data_type == 1:
@@ -27,66 +44,15 @@ def make_triangulation(n, data_type):
         points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
                  + [(-1 + i/(n-3), -1 + i/(n-3)) for i in range(n-3)]
     else:
-        points = open("egg.txt").read().splitlines()
-        points = [line.split(" ") for line in points]
-        points = [(float(p[0]), float(p[1])) for p in points]
-        outer = points[:3]
-        mirror = outer[1][0]
-        other = points[3:]
-        other += [(2*mirror-p[0], p[1]) for p in other]
-        other = set(other)
-        eps = 1e-4
-        other = [(p[0]+(random.random()-1/2)*eps, p[1]+(random.random()-1/2)*eps) for p in other]
-        for p in outer:
-            if p in other:
-                other.remove(p)
-        points = outer + list(other)
-        print(points[:20])
+        raise Error("Invalid argument for data_type")
 
-    # points = [p for p in set(points)]
     n = len(points)
 
-    # return [], points
-
-    input = "2\n{}\n".format(n)
-    input += "\n".join(["{} {}".format(p[0], p[1]) for p in points])
-    input = input.encode('utf8')
-
-    print("Calling qhull")
-    qhull = subprocess.run(["qhull", "d", "i"], input=input,
-                           capture_output=True)
-    lines = qhull.stdout.splitlines()
-    f = 1 + int(lines[0])
-    faces = [(0,1,2)]  # see note below about orientation of outer face
-    for line in lines[1:]:
-        t = tuple([int(s) for s in line.split()])
-        faces.append(t)
-
-    print("Building successor map")
-    succ = build_succ(faces, n)
-    # needed because qhull doesn't consistently orient the outer face
-    if not succ:
-        print("Trying again")
-        faces[0] = (2,1,0)
-        succ = build_succ(faces, n)
-    if not succ:
-        print("ERROR: Unable to build successors")
-
+    print("Computing Delaunay triangulation")
+    succ = triangulate(points)
     return succ, points
 
-
-def build_succ(faces, n):
-    succ = [dict() for _ in range(n)]
-    for t in faces:
-        for i in range(3):
-            (u,v,w) = t[i], t[(i+1)%3], t[(i+2)%3]
-            if v in succ[u]:
-                print("WARNING: Overwriting successor")
-                print(u, succ[u], u, v, w)
-                return None
-            succ[u][v] = w
-    return succ
-
+""" Generate a random point in the unit circle """
 def random_point():
     while 1 < 2:
         x = 2*random.random()-1
@@ -116,6 +82,7 @@ def al2succ(al):
             succ[-1][neighbours[i]] = neighbours[(i+1)%len(neighbours)]
     return succ
 
+
 if __name__ == "__main__":
     n = 10
     data_type = 0
@@ -142,7 +109,6 @@ if __name__ == "__main__":
             worst_case = False
         else:
             n = int(arg)
-
 
     s = ["random", "collinear", "special"][data_type]
     print("Generating {} point set of size {}".format(s, n))
