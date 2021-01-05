@@ -341,7 +341,7 @@ class tripod_partition(object):
 
             if newframe:
                 # The next iteration is a "recursive" call
-                newframe = newframe[::-1]
+                newframe = newframe[::-1] # solve subproblems in preorder
                 stack.append(newframe)
                 nextsubproblem = newframe[-1]
             else:
@@ -354,18 +354,13 @@ class tripod_partition(object):
                         v = paths[2][0]
                         self.colours[v] = self.tripod_colours[self.tripod_map[v][0]]
                     if not frame:
-
                         stack.pop()
                     else:
                         nextsubproblem = frame[-1]
-            # if the tripod is empty and has no children then discard this node
-            # not strictly necessary, but saves a lot of clutter
-            # if not sum([children[i] or len(tripod[i]) > 1 for i in range(3)]):
-            #     self.tripods.pop()
-            #     self.tripod_colours.pop()
-            #     self.tripod_tree.pop()
-            # break
-
+                # TODO: this creates exactly one tripod for each face of
+                # the input graph. Many of these tripods are useless: they
+                # have no legs and no children. With a bit more work we
+                # could avoid creating these tripods and speedup the code
 
     """ Return the parents of tripod t
 
@@ -449,12 +444,18 @@ class tripod_partition(object):
         for u in range(len(self.succ)):
             (tu, iu, ju) = self.tripod_map[u]
             for v in self.succ[u]:
+                # if v < u: continue # no need to check every edge twice
                 (tv, iv, jv) = self.tripod_map[v]
-                assert(tu == tv or tu in self.h3parents(tv) \
-                       or tv in self.h3parents(tu))
-                assert((tu, iu) == (tv, iv) \
-                        or (tu, iu) in h8p[3*tv+iv] \
-                        or (tv, iv) in h8p[3*tu+iu])
+                if tu < tv:
+                    assert(tu in self.h3parents(tv))
+                    assert((tu, iu) in h8p[3*tv+iv])
+                elif tv < tu:
+                    assert(tv in self.h3parents(tu))
+                    assert((tv, iv) in h8p[3*tu+iu])
+                elif iu < iv:
+                    assert((tu, iu) in h8p[3*tv+iv])
+                elif iv < iu:
+                    assert((tv, iv) in h8p[3*tu+iu])
 
     """Return the path from v up in self.t until the first marked node """
     def tripod_path(self, v):

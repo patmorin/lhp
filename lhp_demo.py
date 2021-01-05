@@ -34,7 +34,6 @@ def triangulate(points):
 ######################################################################
 def make_triangulation(n, data_type):
     print("Generating points")
-    random.seed(0)
     if data_type == 0:
         # Use a set of n-3 random points
         points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \

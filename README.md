@@ -46,7 +46,7 @@ The output represents the closed tripods in a tripod partition.
 - Lines 3i-2, 3i-1, 3i are the legs of tripod i (for each i in {1,...,k})
 Each leg of the tripod begins with a vertex of the Sperner triangle and ends at a vertex in one of the three parent tripods.
 
-If f is of the form 2*n - 5, instead of 2*n-4, then the program assumes that there is an additional face [0,1,2] or [2,1,0] that is missing and adds it. This makes it compatible with `qhull`. In particular, the following command line (usually) works:
+If f is of the form 2*n - 5, instead of 2*n - 4, then the program assumes that there is an additional face [0,1,2] or [2,1,0] that is missing and adds it. This makes it compatible with `qhull`. In particular, the following command line works:
 
     rbox y 100 D2 | qhull d Qt i | python3 lhp.py
 
