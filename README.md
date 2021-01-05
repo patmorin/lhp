@@ -25,7 +25,7 @@ If you have a standard adjacency list representation of *G* you can use the foll
 
 After constructing it, the tripod partition has several parts:
 
-- `t`: This is a BFS tree rooted at `roots`.  This tree represented as a array of length *n*. For each `i` in \{0,...,`n`=1\}, `t[i]` is the list of nodes adjacent to `i` beginning with the parent node, so `t[i][0]` is the parent of `i` in the BFS tree.  The parent of each outer face node is `-1`, so `t[j][0] = -1` for each j in `outer_face`.
+- `t`: This is a BFS tree rooted at `roots`.  This tree represented as a array of length *n*. For each `i` in \{0,...,`n`-1\}, `t[i]` is the list of nodes adjacent to `i` beginning with the parent node, so `t[i][0]` is the parent of `i` in the BFS tree.  The parent of each outer face node is `-1`, so `t[j][0] = -1` for each j in `outer_face`.
 - `tripods`: This is a list of closed *tripods*.  Each tripod is a list of 3 vertical paths in the BFS tree T.  The set \{`tripods[i][j][:-1]` : 0&le; i < len(tripods), 0<= j<3 \}  is a partition of the vertices of *G*.  **Note:** Pay attention to the `[:-1]`; each of these three lists contains one extra vertex that is technically not in the tripod.
 - tripod_map: This is a list of length *n* that maps each *v* vertex of *G* onto a triple `(ti,l,j)` where `ti` is the tripod that contains *v*, `l` is the leg that contains *v* and `j` is the location of *v* in this leg.  So, if `(ti,l,j) = tripod_map[v]` then `tripods[ti][l][j]=v`.
 - `tripod_colours`: This is a list of length `len(tripods)` that assigns a colour `tripod_colours[i]` in \{0,1,2,3\} to the tripod `i`.  This is a proper colouring in the sense that, if two tripods receive the same colour then there is no edge between them in *G*.
