@@ -80,23 +80,26 @@ def succ2al(succ):
             if v == v0: break
     return al
 
+def usage():
+    print("Computes a tripod decomposition of a Delaunay triangulation")
+    print("Usage: {} [-h] [-c] [-r] [-y] [-w] [-b] [-nv] <n>".format(sys.argv[0]))
+    print("  -h show this message")
+    print("  -c use collinear points")
+    print("  -y use random points in triangle")
+    print("  -r use random points in disk (default)")
+    print("  -w use O(n log n) time algorithm (default)")
+    print("  -b use O(n^2) time algorithm (usually faster)")
+    print("  -nv don't verify correctness of results")
+    print("  <n> the number of points to use (default = 10)")
 
 if __name__ == "__main__":
-    n = 10
+    n = 0
     data_type = 0
     worst_case = True
+    verify = True
     for arg in sys.argv[1:]:
         if arg == '-h':
-            print("Computes a tripod decomposition of a Delaunay triangulation")
-            print("Usage: {} [-h] [-c] [-r] [-w] [-b] [<n>]".format(sys.argv[0]))
-            print("  -h show this message")
-            print("  -c use collinear points")
-            print("  -y use random points in triangle")
-            print("  -r use random points (default)")
-            print("  -w use O(n log n) time algorithm (default)")
-            print("  -b use O(n^2) time algorithm (usually faster)")
-            print("  -nv don't verify correctness of results")
-            print("  <n> the number of points to use (default = 10)")
+            usage()
         elif arg == '-r':
             data_type = 0   # random
         elif arg == '-c':
@@ -107,8 +110,14 @@ if __name__ == "__main__":
             worst_case = True
         elif arg == '-b':
             worst_case = False
+        elif arg == '-nv':
+            verify = False
         else:
             n = int(arg)
+
+    if n <= 0:
+        usage()
+        sys.exit(-1)
 
     s = ["random", "collinear", "uniform"][data_type]
     print("Generating {} point set of size {}".format(s, n))
@@ -119,9 +128,11 @@ if __name__ == "__main__":
     assert(m == 3*n - 6)
 
     s = ["O(n^2)", "O(n log n)"][worst_case]
-    print("Computing tripod decomposition using {} algorithm".format(s))
+    s2 = ["", " and verifying results"][verify]
+    print("Using {} algorithm{}...".format(s, s2), end='')
+    sys.stdout.flush()
     start = time.time_ns()
-    tp = lhp.tripod_partition(succ, outer_face, worst_case)
+    tp = lhp.tripod_partition(succ, outer_face, worst_case, verify)
     stop = time.time_ns()
     print("done")
     print("Elapsed time: {}s".format((stop-start)*1e-9))

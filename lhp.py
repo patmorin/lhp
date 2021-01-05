@@ -242,20 +242,19 @@ class tripod_partition(object):
         self.tripod_colours = [0]
         self.tripod_tree = [[1]]
 
-        self.compute(paths, worst_case)
+        self._compute(paths, worst_case)
 
         # These are used only during the computation
         del self.index_map
         del self.nma
         del self.tripod_colours
 
-        # Remove this if you don't want the performance hit
-        # It adds about 10% to the runtime
+        # These checks add about 10% to the runtime
         if verify:
             self.verify_results()
 
     """ Compute the partition into tripods """
-    def compute(self, paths, worst_case):
+    def _compute(self, paths, worst_case):
         # To avoid recursion we implement our own recursion stack.
         # Each stack frame is a list of up to 3 subproblems. Each subproblem
         # contains the index of the parent tripod, the index of the subproblem
