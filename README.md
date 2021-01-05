@@ -8,16 +8,25 @@ An implementation of layered H-partitions, a.k.a, the Product Structure Theorem 
 
 ## The `tripod_partition` class
 
-The useful thing for programmers is the `tripod_partition` class, whose constructor requires an embedding of a planar triangulation G with vertex set \{0,..,*n*-1\} and a list of three vertices `outer_face` that lists the vertices of some face in counterlockwise order.
+The useful thing for programmers is the `tripod_partition` class, whose constructor requires an embedding of a planar triangulation *G* with vertex set \{0,..,*n*-1\} and a list of three vertices `outer_face` that lists the vertices of some face in counterlockwise order.
 
-The graph *G* must be described as a list `succ` of length *n*. The list entry `succ[i]` is a dictionary that maps each neighbour *j* of *i* onto the neighbour *k* of *i* that appears immediately after *j* when ordering the neighbours of *i* in counterclockwise order around *i*.  Specifically, *(i,j,k)* is a triangular face of *G*.  For any directed edge *ij*, `succ[i][j]` is the third vertex of the face to the left of *ij*.
+The triangulation *G* must be described as a list `succ` of length *n*. The list entry `succ[i]` is a dictionary that maps each neighbour *j* of *i* onto the neighbour *k* of *i* that appears immediately after *j* when ordering the neighbours of *i* in counterclockwise order around *i*.  Specifically, `(i,j,k)` is a triangular face of *G*.  For any directed edge `ij`, `succ[i][j]` is the third vertex of the face to the left of `ij`.
 
-If you have an embedding of G represented as a standard adjacency list you can use the function *al2succ(al)* in lhp_demo.py to convert to the format we need.
+If you have a standard adjacency list representation of *G* you can use the following function to convert it to the formatted needed by the `tripod_partition` constructor:
 
-After constructing it, the tripod decomposition has several parts:
+    def al2succ(al):
+        succ = list()
+        for neighbours in al:
+            succ.append(dict())
+            for i in range(len(neighbours)):
+                succ[-1][neighbours[i]] = neighbours[(i+1)%len(neighbours)]
+        return succ
+
+
+After constructing it, the tripod partition has several parts:
 
 - `t`: This is a BFS tree rooted at `roots`.  This is represented as a array of length *n*. `t[i]` is the list of nodes adjacent to `i` beginning with the parent node, so `t[i][0]` is the parent of `i` in the BFS tree.  The parent of each outer face node is `-1`, so `t[j][0] = -1` for each j in `outer_face`.
-- `tripods`: This is a list of *tripods*.  Each tripod is a list of 3 vertical paths in the BFS tree T.  The set \{tripods[i][j][:-1] : 0<= i < len(tripods), 0<= j<3 \}  is a partition of the vertices of G.  **Note:** Pay attention to the `[:-1]`; each of these three lists contains one extra vertex that is technically not in the tripod.
+- `tripods`: This is a list of closed *tripods*.  Each tripod is a list of 3 vertical paths in the BFS tree T.  The set \{`tripods[i][j][:-1]` : 0&le; i < len(tripods), 0<= j<3 \}  is a partition of the vertices of *G*.  **Note:** Pay attention to the `[:-1]`; each of these three lists contains one extra vertex that is technically not in the tripod.
 - tripod_map: This is a list of length *n* that maps each *v* vertex of *G* onto a triple `(ti,l,j)` where `ti` is the tripod that contains *v*, `l` is the leg that contains *v* and `j` is the location of *v* in this leg.  So, if `(ti,l,j) = tripod_map[v]` then `tripods[ti][l][j]=v`.
 - `tripod_colours`: This is a list of length `len(tripods)` that assigns a colour `tripod_colours[i]` in \{0,1,2,3\} to the tripod `i`.  This is a proper colouring in the sense that, if two tripods receive the same colour then there is no edge between them in *G*.
 - `tripod_tree`: This is a list of length `len(tripods)` that encodes a 3-ary tree whose nodes are tripods.  This tree has the property that `tripods[i][j][:-1]` (a vertical path in `t`) has no vertex adjacent to any tripod in the subtree `tripod_tree[i][j]`.  (Leg *j* of the tripod is separated from all tripods contained in subtree *j*.)
@@ -55,14 +64,10 @@ Unfortunately, this demo requires `scipy.spatial` (which uses `qhull`) for gener
       -b use O(n^2) time algorithm (usually faster)
       <n> the number of points to use
 
-If n &lt; 500 then this program will show the result in a matplotlib window.
+If *n* &lt; 500 then this program will show the result in a matplotlib window, producing pictures that look like this:
 
-
-## Demo Program
-
-The program lhp_demo.py produces pictures that look like this:
-
-![tripod decomposition](figure.png "Tripod decomposition")
-![tripod decomposition](figure2.png "Tripod decomposition")
+![tripod decomposition](figs/figure.png "Tripod decomposition")
+![tripod decomposition](figs/figure2.png "Tripod decomposition")
+![tripod decomposition](figs/figure3.png "Tripod decomposition")
 
 Run `lhp_demo.py -h` for a list of options

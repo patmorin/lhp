@@ -42,8 +42,15 @@ def make_triangulation(n, data_type):
         # Use a set of n-3 collinear points
         points = [(-1.5,-1.5), (-1.5,3), (3,-1.5)] \
                  + [(-1 + i/(n-3), -1 + i/(n-3)) for i in range(n-3)]
+    elif data_type == 2:
+        points = [(0, 0), (1,1), (1,0)] \
+                 + [(random.random(), random.random()) for _ in range(n-3)]
+        for i in range(n):
+            (x, y) = points[i]
+            if x < y:
+                points[i] = (y, x)
     else:
-        raise Error("Invalid argument for data_type")
+        raise ValueError("Invalid argument for data_type")
 
     n = len(points)
     random.shuffle(points)
@@ -93,6 +100,7 @@ if __name__ == "__main__":
             print("Usage: {} [-h] [-c] [-r] [-w] [-b] [<n>]".format(sys.argv[0]))
             print("  -h show this message")
             print("  -c use collinear points")
+            print("  -y use random points in triangle")
             print("  -r use random points (default)")
             print("  -w use O(n log n) time algorithm (default)")
             print("  -b use O(n^2) time algorithm (usually faster)")
@@ -101,6 +109,8 @@ if __name__ == "__main__":
             data_type = 0   # random
         elif arg == '-c':
             data_type = 1   # collinear
+        elif arg == '-y':
+            data_type = 2   # random in triangle (like rbox y)
         elif arg == '-w':
             worst_case = True
         elif arg == '-b':
@@ -108,7 +118,7 @@ if __name__ == "__main__":
         else:
             n = int(arg)
 
-    s = ["random", "collinear", "special"][data_type]
+    s = ["random", "collinear", "uniform"][data_type]
     print("Generating {} point set of size {}".format(s, n))
     succ, points, outer_face = make_triangulation(n, data_type)
     n = len(succ)
