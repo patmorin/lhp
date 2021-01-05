@@ -53,7 +53,7 @@ def make_triangulation(n, data_type):
         raise ValueError("Invalid argument for data_type")
 
     n = len(points)
-    random.shuffle(points)
+    # random.shuffle(points)
 
     print("Computing Delaunay triangulation")
     succ, outer_face = triangulate(points)
@@ -80,15 +80,6 @@ def succ2al(succ):
             if v == v0: break
     return al
 
-""" Convert a standard adjacency list embedding of a triangulation into the triangle-based adjacency representation we need """
-def al2succ(al):
-    succ = list()
-    for neighbours in al:
-        succ.append(dict())
-        for i in range(len(neighbours)):
-            succ[-1][neighbours[i]] = neighbours[(i+1)%len(neighbours)]
-    return succ
-
 
 if __name__ == "__main__":
     n = 10
@@ -104,6 +95,7 @@ if __name__ == "__main__":
             print("  -r use random points (default)")
             print("  -w use O(n log n) time algorithm (default)")
             print("  -b use O(n^2) time algorithm (usually faster)")
+            print("  -nv don't verify correctness of results")
             print("  <n> the number of points to use (default = 10)")
         elif arg == '-r':
             data_type = 0   # random
@@ -152,9 +144,10 @@ if __name__ == "__main__":
     fmap = ['mistyrose', 'lightgreen', 'lightblue', 'moccasin', 'ghostwhite']
 
     # Draw tripods
+    tripod_colours = tp.colour_tripods()
     for i in range(1, len(tp.tripods)):
         tripod = tp.tripods[i]
-        c = tp.tripod_colours[i]
+        c = tripod_colours[i]
         # Draw legs
         for path in tripod:
             x = [points[v][0] for v in path]
@@ -180,7 +173,8 @@ if __name__ == "__main__":
             plt.plot(x, y, color=cmap[c], lw=2)
 
     for v in range(n):
-        c = cmap[tp.get_colour(v)]
+        t = tp.tripod_map[v][0]
+        c = cmap[tripod_colours[t]]
         plt.plot(points[v][0], points[v][1], color=c, lw=1, marker='o',
                  markersize=min(8,400/n))
 
