@@ -437,10 +437,12 @@ class tripod_partition(object):
             assert(len(h3parents) == 0 or max(h3parents) < t)
 
         # Check the graph obtained by contracting legs
+        h8p = list()
         for (t, i) in itertools.product(range(len(self.tripods)), range(3)):
             h8parents = self.h8parents(t, i)
             assert(len(h8parents) <= 8)
             assert(len(h8parents) == 0 or max(h8parents) < (t,i))
+            h8p.append(h8parents)
 
         # Check that h3 and h8 contain the graphs obtained by contracting
         # tripods and legs, respectively
@@ -451,19 +453,20 @@ class tripod_partition(object):
                 assert(tu == tv or tu in self.h3parents(tv) \
                        or tv in self.h3parents(tu))
                 assert((tu, iu) == (tv, iv) \
-                        or (tu, iu) in self.h8parents(tv, iv) \
-                        or (tv, iv) in self.h8parents(tu, iu))
+                        or (tu, iu) in h8p[3*tv+iv] \
+                        or (tv, iv) in h8p[3*tu+iu])
 
+    """Return the path from v up in self.t until the first marked node """
     def tripod_path(self, v):
         path = list()
         while not self.nma.is_marked(v):
             path.append(v)
-            v = self.t[v][0]  # v := parent(v)
+            v = self.t[v][0]  # v = parent(v)
         path.append(v)
         return path
 
+    """Find the trichromatic triangle starting from the portal e"""
     def sperner_triangle(self, e):
-        """Find the trichromatic triangle starting from the portal e"""
         c0 = self.get_colour(e[0])
         c1 = self.get_colour(e[1])
         assert(c0 != c1)
@@ -477,8 +480,8 @@ class tripod_partition(object):
             else:
                 e = v, e[1]
 
+    """Find the trichromatic triangle searching from 3 portals"""
     def sperner_triangle_parallel(self, e):
-        """Find the trichromatic triangle searching from 3 portals"""
         c0 = [None]*len(e)
         c1 = [None]*len(e)
         for i in range(len(e)):
@@ -497,10 +500,12 @@ class tripod_partition(object):
                 else:
                     e[i] = v, e[i][1]
 
+    """Set the colour of v to c"""
     def set_colour(self, v, c):
         self.nma.mark(v)
         self.colours[v] = c
 
+    """Get the colour of the first marked ancestor of v"""
     def get_colour(self, v):
         a = self.nma.nearest_marked_ancestor(v)
         return self.colours[a]
