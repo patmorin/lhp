@@ -26,11 +26,25 @@ If you have a standard adjacency list representation of *G* you can use the foll
 After constructing it, the tripod partition has several parts:
 
 - `t`: This is a BFS tree rooted at `roots`.  This tree represented as a array of length *n*. For each `i` in \{0,...,`n`-1\}, `t[i]` is the list of nodes adjacent to `i` beginning with the parent node, so `t[i][0]` is the parent of `i` in the BFS tree.  The parent of each outer face node is `-1`, so `t[j][0] = -1` for each j in `outer_face`.
-- `tripods`: This is a list of closed *tripods*.  Each tripod is a list of 3 vertical paths in the BFS tree T.  The set \{`tripods[i][j][:-1]` : 0&le; `i` < len(tripods), 0&le; `j`<3 \}  is a partition of the vertices of *G*.  **Note:** Pay attention to the `[:-1]`; each of these three lists contains one extra vertex that is part of the parent tripod.  
+- `tripods`: This is a list of *closed tripods*.  Each tripod `tripods[t]` is a list of 3 vertical paths in the BFS tree T called the *legs* of `t`.  Each leg `tripods[t][i]` of each tripod contains a *foot* `tripods[t][i][-1]`.  For each `t>0` each each `i` in \{1,2,3\}, the foot `tripods[t][i][-1]` appears&mdash;not as a foot&mdash;in exactly one other tripod, so  `tripods[t][i][-1]` is contained in `tripods[p][j][:-1]` for some `(p,j)`.  When this happens, `p` is called the *parent tripod* of `t`.  The only exception is the *root tripod* `tripods[0]`, for which `tripods[0][i][-1]=-1` for each `i` in \{0,1,2\}.  The *open* tripod `t` consists of the tripod `t` minus its three feet. The open tripods form a partition of the vertices of *G*, as do the legs of the open tripods; each vertex of *G* appears in exactly one leg of one open tripod.
 - `tripod_map`: This is a list of length *n* that maps each *v* vertex of *G* onto a triple `(ti,l,j)` where `ti` is the tripod that contains *v*, `l` is the leg that contains *v* and `j` is the location of *v* in this leg.  So, if `(ti,l,j) = tripod_map[v]` then `tripods[ti][l][j]=v`.
-- `tripod_tree`: This is a list of length `len(tripods)` that encodes a 3-ary tree whose nodes are tripods.  This tree has the property that `tripods[i][j][:-1]` (a vertical path in `t`) has no vertex adjacent to any tripod in the subtree `tripod_tree[i][j]`.  (Leg *j* of the tripod is separated from all tripods contained in subtree *j*.)  A useful property of these tripods is that they are ordered by a preorder traversal of the tripod tree.  If tripod `a` is an ancestor of tripod `t`, then this makes it possible to know, in constant-time, which of the three subtrees of `a` contains `t`.
+- `tripod_tree`: This is a list of length `len(tripods)` that encodes a 3-ary tree whose nodes are tripods.  This tree has the property that `tripods[i][j][:-1]` (a vertical path in `t`) has no vertex adjacent to any open tripod in the subtree `tripod_tree[i][j]`.  (Leg *j* of the tripod is separated from all tripods contained in subtree *j*.)  A useful property of these tripods is that they are ordered by a preorder traversal of the tripod tree.  If tripod `a` is an ancestor of tripod `t`, then this makes it possible to know, in constant-time, which of the three subtrees of `a` contains `t`.
 
-The `tripod_tree`, `tripods`, and `tripod_map` can be used to obtain a width-3 tree-decomposition of the planar graph H_3 obtained from *G* by contracting each tripod.  They can also be used to obtain a width-8 tree-decomposition of the planar graph obtained by contracting each leg of each tripod.  These graphs are implicitly represented by the functions `h3parents(t)` and the functions `h8parents(t, i)`.
+## Tree decompositions of quotient graphs
+
+A `tripod_partition` induces two quotient graphs: The graph h3 is the graph obtained by contracting each open tripod. The graph h8 is the graph obtained by contracting each leg of each open tripod. The data members `tripod_tree`, `tripods`, and `tripod_map` can be used to obtain a width-3 tree-decomposition of h3 and a width-8 tree decomposition of h8. The `tripod_partition` class includes members functions for doing this:
+
+- `h3parents(t)`: returns a list of (at most 3) tripods that are the parents of t in a width-3 tree decomposition of h3.
+- `h8parents(t, i)`: returns a lsit of (at most 8) tripods that are the parents of leg i of tripod t in a width-8 tree decomposition of h8.
+
+The numbering of tripods is such that `p<t` for each `p` in `h3parents(t)` and `(p,j)<(t,i)` for each `(p,j)` in `h3parents(t,i)`.  (Remember that Python does lexicographic comparison of tuples.) 
+
+Each of these functions runs in constant time, but if you intend to do a lot of work with these decompositions, it is worthwhile saving them using something like:
+
+    h3p = [ h3parents(t) for t in range(len(tp.tripods) ]
+    h8p = [ h8parents(t,i) for (t,i) in itertools.product(range(len(tp.tripods),range(3)) ]
+
+(In the second case, `h8parents(t,i)==h8p[3*t+i]`.)
 
 ## Standalone program
 
