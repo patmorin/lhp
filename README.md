@@ -87,3 +87,15 @@ If *n* &lt; 500 then this program will show the result in a matplotlib window, p
 ![tripod decomposition](figs/figure3.png "Tripod decomposition")
 
 Run `lhp_demo.py -h` for a list of options
+
+# References
+
+For more information on the Product Structure Theorem and the algorithm described here, see the following references:
+
+- [arxiv:1904.04791](https://arxiv.org/abs/1904.04791) introduces the tripod decomposition and uses it to solve an old problem on planar graphs.
+- [arxiv:1807.03683](https://arxiv.org/abs/1807.03683) introduces a slightly different tripod decomposition, on which the one described in the previous reference  is based.
+- [arxiv:2004.02530](https://arxiv.org/abs/2004.02530) describes the algorithm used in this implementation
+
+The product structure theorem has been used to solve a number of problems on planar graphs, including [queue number](https://arxiv.org/abs/1904.04791), [nonrepetitive colouring](https://arxiv.org/abs/1904.05269), [adjacency labelling](https://arxiv.org/abs/2003.04280), [universal graphs](https://arxiv.org/abs/2010.05779), [vertex ranking](https://arxiv.org/abs/2007.06455) and [p-centered colouring](https://arxiv.org/abs/1907.04586).  You can probably find more on [Google Scholar](https://scholar.google.com/scholar?cites=16964377059594834981)
+
+
