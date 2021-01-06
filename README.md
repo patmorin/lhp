@@ -98,4 +98,6 @@ For more information on the Product Structure Theorem and the algorithm describe
 
 The product structure theorem has been used to solve a number of problems on planar graphs, including [queue number](https://arxiv.org/abs/1904.04791), [nonrepetitive colouring](https://arxiv.org/abs/1904.05269), [adjacency labelling](https://arxiv.org/abs/2003.04280), [universal graphs](https://arxiv.org/abs/2010.05779), [vertex ranking](https://arxiv.org/abs/2007.06455) and [p-centered colouring](https://arxiv.org/abs/1907.04586).  You can probably find more on [Google Scholar](https://scholar.google.com/scholar?cites=16964377059594834981).
 
+There are product structure theorems for generalizations of planar graphs, including [bounded-genus and apex-minor-free graphs](https://arxiv.org/abs/1904.04791) and [k-planar graphs](https://arxiv.org/abs/1907.05168).  Most of these ultimately rely on a subroutine computing the product structure of planar graphs like the one given in this implementation.
+
 
